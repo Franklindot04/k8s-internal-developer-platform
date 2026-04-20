@@ -1,0 +1,9 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your application is now being deployed.
+
+To check the status of your deployment:
+  kubectl get pods -l app={{ include "base-chart.name" . }}
+
+To access the service:
+  kubectl port-forward svc/{{ include "base-chart.fullname" . }} 8080:{{ .Values.service.port }}
