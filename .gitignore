@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Mac
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Kubernetes
+*.log
