@@ -23,3 +23,11 @@ create_folder_structure() {
 generate_service "example"
 
 create_folder_structure "example"
+
+copy_template_files() {
+  echo "Copying template files for service: $1"
+}
+
+generate_service "example"
+create_folder_structure "example"
+copy_template_files "example"
