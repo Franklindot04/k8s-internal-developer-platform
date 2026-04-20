@@ -15,3 +15,11 @@ generate_service() {
 
 # temporary call for testing
 generate_service "example"
+
+create_folder_structure() {
+  echo "Creating folder structure for service: $1"
+}
+
+generate_service "example"
+
+create_folder_structure "example"
