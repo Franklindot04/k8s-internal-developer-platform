@@ -1,0 +1,7 @@
+apiVersion: v2
+name: base-chart
+description: Base Helm chart for platform components
+type: application
+version: 0.1.0
+appVersion: "1.0"
+
