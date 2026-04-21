@@ -13,3 +13,7 @@ ingress:
   enabled: false
   host: example.local
 
+config:
+  enabled: false
+  exampleValue: "default"
+
