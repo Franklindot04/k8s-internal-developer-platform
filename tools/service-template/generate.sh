@@ -31,3 +31,11 @@ copy_template_files() {
 generate_service "example"
 create_folder_structure "example"
 copy_template_files "example"
+
+render_variables() {
+  echo "Rendering variables for service: $1"
+}
+generate_service "example" 
+create_folder_structure "example" 
+copy_template_files "example" 
+render_variables "example"
