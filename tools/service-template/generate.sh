@@ -39,3 +39,16 @@ generate_service "example"
 create_folder_structure "example" 
 copy_template_files "example" 
 render_variables "example"
+
+
+finalize_service() {
+  echo "Finalizing service setup for: $1"
+}
+
+generate_service "example" 
+create_folder_structure "example" 
+copy_template_files "example" 
+render_variables "example"
+finalize_service "example"
+
+
