@@ -189,10 +189,30 @@ render_variables_basic() {
   log "Variable rendering completed."
 }
 
+resolve_language() {
+  local language="$1"
+
+  case "${language}" in
+    node)
+      log "Using Node.js language variant (placeholder)..."
+      ;;
+    python)
+      log "Using Python language variant (placeholder)..."
+      ;;
+    go)
+      log "Using Go language variant (placeholder)..."
+      ;;
+    *)
+      log "Unknown language '${language}', falling back to Node.js (placeholder)..."
+      ;;
+  esac
+}
+
 run_generator() {
   service_name="$1"
 
   validate_input "${service_name}"
+  resolve_language "${service_language}"
   preflight_checks
   version_check
   diagnostics
