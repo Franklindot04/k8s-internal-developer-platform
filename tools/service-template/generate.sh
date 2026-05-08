@@ -45,12 +45,20 @@ preflight_checks() {
   log "Preflight checks completed."
 }
 
+post_generation_summary() {
+  log "----------------------------------------"
+  log "Service generation summary:"
+  log "Service name: $1"
+  log "Status: Completed (placeholder)"
+  log "----------------------------------------"
+}
+
 run_generator() {
   service_name="$1"
 
   validate_input "${service_name}"
   preflight_checks
-  
+
   log "Starting service generation for: ${service_name}"
 
   generate_service "${service_name}"
@@ -59,6 +67,8 @@ run_generator() {
   render_variables "${service_name}"
   finalize_service "${service_name}"
 
+  post_generation_summary "${service_name}"
+  
   log "Service generation flow completed for: ${service_name}"
 }
 
