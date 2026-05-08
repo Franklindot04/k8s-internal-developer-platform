@@ -19,6 +19,11 @@ spec:
     fsGroup: {{ .Values.podSecurityContext.fsGroup }}
 {{- end }}
 
+{{- if .Values.podAnnotations }}
+  annotations:
+{{ toYaml .Values.podAnnotations | indent 4 }}
+{{- end }}
+
     spec:
       containers:
         - name: {{ include "base-chart.name" . }}
