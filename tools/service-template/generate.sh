@@ -53,6 +53,12 @@ post_generation_summary() {
   log "----------------------------------------"
 }
 
+cleanup() {
+  log "Performing cleanup tasks (placeholder)..."
+  # placeholder for future cleanup logic
+  log "Cleanup completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -68,6 +74,7 @@ run_generator() {
   finalize_service "${service_name}"
 
   post_generation_summary "${service_name}"
+  cleanup
   
   log "Service generation flow completed for: ${service_name}"
 }
