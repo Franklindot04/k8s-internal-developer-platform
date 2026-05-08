@@ -17,5 +17,6 @@ This repository contains a Kubernetes-based Internal Developer Platform (IDP) de
 
 - Platform / DevOps / SRE Lead: Franklin
 - Application Platform Engineer: Mordecai Nathan
+- Application Platform Engineer: Escasr 
 
-last update 20 April 2025
+last update 08 may 2025
