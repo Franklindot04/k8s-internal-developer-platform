@@ -47,3 +47,7 @@ containerSecurityContext:
 
 serviceAccount:
   enabled: false
+
+networkPolicy:
+  enabled: false
+
