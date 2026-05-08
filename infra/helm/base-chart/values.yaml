@@ -62,3 +62,13 @@ resources:
     cpu: 100m
     memory: 128Mi
 
+probes:
+  enabled: false
+  liveness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
