@@ -95,6 +95,12 @@ template_registry() {
   log "Template registry loaded."
 }
 
+template_resolver() {
+  log "Resolving template (placeholder)..."
+  # placeholder for future template resolution logic
+  log "Template resolved."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -106,7 +112,8 @@ run_generator() {
   verbose_mode
   config_loader
   template_registry
-  
+  template_resolver
+
   log "Starting service generation for: ${service_name}"
 
   generate_service "${service_name}"
