@@ -89,6 +89,12 @@ config_loader() {
   log "Configuration loaded."
 }
 
+template_registry() {
+  log "Loading template registry (placeholder)..."
+  # placeholder for future template registry logic
+  log "Template registry loaded."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -99,6 +105,7 @@ run_generator() {
   dry_run
   verbose_mode
   config_loader
+  template_registry
   
   log "Starting service generation for: ${service_name}"
 
