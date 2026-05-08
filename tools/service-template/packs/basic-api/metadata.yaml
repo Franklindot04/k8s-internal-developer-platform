@@ -1,0 +1,3 @@
+helm:
+  enabled: true
+  chart: "base-chart"

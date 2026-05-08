@@ -1,0 +1,7 @@
+# Helm values for {{ service_name }} (placeholder)
+replicaCount: 1
+image:
+  repository: "{{ service_name }}"
+  tag: "latest"
+service:
+  port: 8080

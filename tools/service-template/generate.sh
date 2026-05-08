@@ -208,6 +208,12 @@ resolve_language() {
   esac
 }
 
+helm_integration() {
+  log "Integrating Helm chart for service (placeholder)..."
+  # placeholder for future Helm integration logic
+  log "Helm integration completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -225,6 +231,7 @@ run_generator() {
   template_validator
   template_renderer
   render_variables_basic "${rendered_dir}" "${service_name}"
+  helm_integration "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook
