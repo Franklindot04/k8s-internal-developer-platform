@@ -17,3 +17,6 @@ config:
   enabled: false
   exampleValue: "default"
 
+secret:
+  enabled: false
+  exampleValue: "changeme"
