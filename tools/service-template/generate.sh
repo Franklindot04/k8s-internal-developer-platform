@@ -71,6 +71,12 @@ diagnostics() {
   log "Diagnostics completed."
 }
 
+dry_run() {
+  log "Dry-run mode active (placeholder)..."
+  # placeholder for future dry-run logic
+  log "Dry-run completed."
+}
+  
 run_generator() {
   service_name="$1"
 
@@ -78,6 +84,7 @@ run_generator() {
   preflight_checks
   version_check
   diagnostics
+  dry_run
 
   log "Starting service generation for: ${service_name}"
 
