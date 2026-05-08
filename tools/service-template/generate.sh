@@ -119,6 +119,12 @@ template_renderer() {
   log "Template rendering completed."
 }
 
+template_post_processor() {
+  log "Post-processing rendered template (placeholder)..."
+  # placeholder for future post-processing logic
+  log "Post-processing completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -134,6 +140,7 @@ run_generator() {
   template_fetcher
   template_validator
   template_renderer
+  template_post_processor
 
   log "Starting service generation for: ${service_name}"
 
