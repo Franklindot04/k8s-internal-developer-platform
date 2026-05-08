@@ -59,11 +59,18 @@ cleanup() {
   log "Cleanup completed."
 }
 
+version_check() {
+  log "Checking generator version compatibility (placeholder)..."
+  # placeholder for future version compatibility logic
+  log "Version check completed."
+}
+
 run_generator() {
   service_name="$1"
 
   validate_input "${service_name}"
   preflight_checks
+  version_check
 
   log "Starting service generation for: ${service_name}"
 
@@ -75,7 +82,7 @@ run_generator() {
 
   post_generation_summary "${service_name}"
   cleanup
-  
+
   log "Service generation flow completed for: ${service_name}"
 }
 
