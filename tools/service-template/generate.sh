@@ -35,11 +35,22 @@ finalize_service() {
   log "Finalizing service setup for: $1"
 }
 
+preflight_checks() {
+  log "Running preflight checks..."
+
+  # placeholder for future checks
+  # e.g., verifying template directory exists
+  # e.g., verifying write permissions
+
+  log "Preflight checks completed."
+}
+
 run_generator() {
   service_name="$1"
 
   validate_input "${service_name}"
-
+  preflight_checks
+  
   log "Starting service generation for: ${service_name}"
 
   generate_service "${service_name}"
