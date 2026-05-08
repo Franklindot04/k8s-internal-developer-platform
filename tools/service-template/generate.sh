@@ -107,6 +107,12 @@ template_fetcher() {
   log "Template fetched."
 }
 
+template_validator() {
+  log "Validating template (placeholder)..."
+  # placeholder for future template validation logic
+  log "Template validation completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -120,6 +126,7 @@ run_generator() {
   template_registry
   template_resolver
   template_fetcher
+  template_validator
 
   log "Starting service generation for: ${service_name}"
 
