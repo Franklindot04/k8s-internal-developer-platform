@@ -83,6 +83,12 @@ verbose_mode() {
   log "Verbose mode completed."
 }
 
+config_loader() {
+  log "Loading generator configuration (placeholder)..."
+  # placeholder for future configuration loading logic
+  log "Configuration loaded."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -92,7 +98,8 @@ run_generator() {
   diagnostics
   dry_run
   verbose_mode
-
+  config_loader
+  
   log "Starting service generation for: ${service_name}"
 
   generate_service "${service_name}"
