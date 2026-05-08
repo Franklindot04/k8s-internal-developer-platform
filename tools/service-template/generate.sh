@@ -1,62 +1,46 @@
-#!/bin/bash# placeholder service generator script
 #!/bin/bash
-
- 
 
 # placeholder service generator script
 
- 
+log() {
+  echo "[generator] $1"
+}
+
+validate_input() {
+  if [ -z "$1" ]; then
+    log "Error: service name is required."
+    exit 1
+  fi
+
+  log "Input validated for service: $1"
+}
 
 generate_service() {
-  echo "Generating service: $1"
+  log "Generating service: $1"
 }
-
- 
-
-# temporary call for testing
-generate_service "example"
 
 create_folder_structure() {
-  echo "Creating folder structure for service: $1"
+  log "Creating folder structure for service: $1"
 }
-
-generate_service "example"
-
-create_folder_structure "example"
 
 copy_template_files() {
-  echo "Copying template files for service: $1"
+  log "Copying template files for service: $1"
 }
-
-generate_service "example"
-create_folder_structure "example"
-copy_template_files "example"
 
 render_variables() {
-  echo "Rendering variables for service: $1"
+  log "Rendering variables for service: $1"
 }
-generate_service "example" 
-create_folder_structure "example" 
-copy_template_files "example" 
-render_variables "example"
-
 
 finalize_service() {
-  echo "Finalizing service setup for: $1"
+  log "Finalizing service setup for: $1"
 }
-
-generate_service "example" 
-create_folder_structure "example" 
-copy_template_files "example" 
-render_variables "example"
-finalize_service "example"
 
 run_generator() {
   service_name="$1"
 
- validate_input "${service_name}"
+  validate_input "${service_name}"
 
-  echo "Starting service generation for: ${service_name}"
+  log "Starting service generation for: ${service_name}"
 
   generate_service "${service_name}"
   create_folder_structure "${service_name}"
@@ -64,15 +48,7 @@ run_generator() {
   render_variables "${service_name}"
   finalize_service "${service_name}"
 
-  echo "Service generation flow completed for: ${service_name}"
+  log "Service generation flow completed for: ${service_name}"
 }
+
 run_generator "example"
-
-validate_input() {
-  if [ -z "$1" ]; then
-    echo "Error: service name is required."
-    exit 1
-  fi
-
-  echo "Input validated for service: $1"
-}
