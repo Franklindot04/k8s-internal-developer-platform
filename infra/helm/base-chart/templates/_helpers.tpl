@@ -13,3 +13,15 @@
 {{- define "base-chart.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 {{- end }}
+
+{{- define "base-chart.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "base-chart.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "base-chart.podLabels" -}}
+{{ include "base-chart.selectorLabels" . }}
+{{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | nindent 0 }}
+{{- end }}
+{{- end }}
