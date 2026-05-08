@@ -131,6 +131,12 @@ file_writer() {
   log "File writing completed."
 }
 
+post_generation_hook() {
+  log "Running post-generation hook (placeholder)..."
+  # placeholder for future post-generation logic
+  log "Post-generation hook completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -148,6 +154,7 @@ run_generator() {
   template_renderer
   template_post_processor
   file_writer
+  post_generation_hook
 
   log "Starting service generation for: ${service_name}"
 
