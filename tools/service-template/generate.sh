@@ -77,6 +77,12 @@ dry_run() {
   log "Dry-run completed."
 }
   
+verbose_mode() {
+  log "Verbose mode active (placeholder)..."
+  # placeholder for future verbose logging
+  log "Verbose mode completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -85,6 +91,7 @@ run_generator() {
   version_check
   diagnostics
   dry_run
+  verbose_mode
 
   log "Starting service generation for: ${service_name}"
 
