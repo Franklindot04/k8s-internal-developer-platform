@@ -1,9 +1,27 @@
 apiVersion: v2
+
 name: base-chart
+
 description: Base Helm chart for platform components
+
 type: application
+
 version: 0.1.0
+
 appVersion: "1.0"
+
 schema: values.schema.json
+
 dependencies: []
 
+maintainers:
+  - name: "Platform Team"
+    email: "platform@example.com"
+
+keywords:
+  - placeholder
+  - service
+  - platform
+
+annotations:
+  example.com/metadata: "placeholder for future metadata enrichment"
