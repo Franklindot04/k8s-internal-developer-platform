@@ -89,27 +89,54 @@ config_loader() {
   log "Configuration loaded."
 }
 
+#!/usr/bin/env bash
+
+declare -A TEMPLATE_PACKS
+
 template_registry() {
-  log "Loading template registry (placeholder)..."
-  # placeholder for future template registry logic
+  log "Loading template registry..."
+
+  TEMPLATE_PACKS["basic-api"]="tools/service-template/packs/basic-api"
+
   log "Template registry loaded."
 }
 
 template_resolver() {
-  log "Resolving template (placeholder)..."
-  # placeholder for future template resolution logic
-  log "Template resolved."
+  local service_type="$1"
+
+  log "Resolving template..."
+
+  if [[ "${service_type}" == "basic-api" ]]; then
+    echo "${TEMPLATE_PACKS["basic-api"]}"
+    return
+  fi
+
+  log "Unknown service type: ${service_type}"
 }
 
 template_fetcher() {
-  log "Fetching template (placeholder)..."
-  # placeholder for future template fetching logic
+  local template_path="$1"
+
+  log "Fetching template..."
+
+  if [[ "${template_path}" == "${TEMPLATE_PACKS["basic-api"]}" ]]; then
+    log "Fetching Basic API template pack (placeholder)..."
+    return
+  fi
+
   log "Template fetched."
 }
 
 template_validator() {
-  log "Validating template (placeholder)..."
-  # placeholder for future template validation logic
+  local template_path="$1"
+
+  log "Validating template..."
+
+  if [[ "${template_path}" == "${TEMPLATE_PACKS["basic-api"]}" ]]; then
+    log "Validating Basic API template pack (placeholder)..."
+    return
+  fi
+
   log "Template validation completed."
 }
 
