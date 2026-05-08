@@ -51,4 +51,18 @@ copy_template_files "example"
 render_variables "example"
 finalize_service "example"
 
+run_generator() {
+  service_name="$1"
+
+  echo "Starting service generation for: ${service_name}"
+
+  generate_service "${service_name}"
+  create_folder_structure "${service_name}"
+  copy_template_files "${service_name}"
+  render_variables "${service_name}"
+  finalize_service "${service_name}"
+
+  echo "Service generation flow completed for: ${service_name}"
+}
+run_generator "example"
 
