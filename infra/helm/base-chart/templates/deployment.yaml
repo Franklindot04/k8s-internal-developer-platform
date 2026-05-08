@@ -11,6 +11,14 @@ spec:
     metadata:
       labels:
         app: {{ include "base-chart.name" . }}
+
+{{- if .Values.podSecurityContext.enabled }}
+  securityContext:
+    runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+    runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
+    fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+{{- end }}
+
     spec:
       containers:
         - name: {{ include "base-chart.name" . }}
