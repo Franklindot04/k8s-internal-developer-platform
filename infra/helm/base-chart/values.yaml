@@ -72,3 +72,10 @@ probes:
     path: /ready
     initialDelaySeconds: 5
     periodSeconds: 10
+
+nodeSelector: {}
+
+affinity: {}
+
+tolerations: []
+
