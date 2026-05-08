@@ -20,3 +20,9 @@ config:
 secret:
   enabled: false
   exampleValue: "changeme"
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
