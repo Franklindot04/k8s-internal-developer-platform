@@ -176,6 +176,19 @@ diagnostic_summary() {
   log "Diagnostic summary completed."
 }
 
+render_variables_basic() {
+  local target_dir="$1"
+  local service_name="$2"
+
+  log "Rendering variables (basic)..."
+
+  find "${target_dir}" -type f | while read -r file; do
+    sed -i "s/{{ service_name }}/${service_name}/g" "${file}"
+  done
+
+  log "Variable rendering completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -191,6 +204,7 @@ run_generator() {
   template_fetcher
   template_validator
   template_renderer
+  render_variables_basic "${rendered_dir}" "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook
