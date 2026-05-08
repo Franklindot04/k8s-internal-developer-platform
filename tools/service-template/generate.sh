@@ -65,12 +65,19 @@ version_check() {
   log "Version check completed."
 }
 
+diagnostics() {
+  log "Running diagnostics (placeholder)..."
+  # placeholder for future diagnostic output
+  log "Diagnostics completed."
+}
+
 run_generator() {
   service_name="$1"
 
   validate_input "${service_name}"
   preflight_checks
   version_check
+  diagnostics
 
   log "Starting service generation for: ${service_name}"
 
