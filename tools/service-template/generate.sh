@@ -54,6 +54,8 @@ finalize_service "example"
 run_generator() {
   service_name="$1"
 
+ validate_input "${service_name}"
+
   echo "Starting service generation for: ${service_name}"
 
   generate_service "${service_name}"
@@ -66,3 +68,11 @@ run_generator() {
 }
 run_generator "example"
 
+validate_input() {
+  if [ -z "$1" ]; then
+    echo "Error: service name is required."
+    exit 1
+  fi
+
+  echo "Input validated for service: $1"
+}
