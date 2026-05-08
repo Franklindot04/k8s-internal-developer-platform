@@ -125,6 +125,12 @@ template_post_processor() {
   log "Post-processing completed."
 }
 
+file_writer() {
+  log "Writing generated files (placeholder)..."
+  # placeholder for future file writing logic
+  log "File writing completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -141,6 +147,7 @@ run_generator() {
   template_validator
   template_renderer
   template_post_processor
+  file_writer
 
   log "Starting service generation for: ${service_name}"
 
