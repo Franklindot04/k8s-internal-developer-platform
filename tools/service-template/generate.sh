@@ -137,6 +137,12 @@ post_generation_hook() {
   log "Post-generation hook completed."
 }
 
+cleanup_hook() {
+  log "Running cleanup hook (placeholder)..."
+  # placeholder for future cleanup logic
+  log "Cleanup hook completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -155,6 +161,7 @@ run_generator() {
   template_post_processor
   file_writer
   post_generation_hook
+  cleanup_hook
 
   log "Starting service generation for: ${service_name}"
 
