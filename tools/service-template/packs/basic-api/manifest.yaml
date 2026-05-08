@@ -2,3 +2,14 @@
     description: "Programming language for the service"
     required: false
     default: "node"
+
+  optional_components:
+  metrics:
+    description: "Enable metrics support"
+    default: false
+  health:
+    description: "Enable health endpoints"
+    default: true
+  tracing:
+    description: "Enable tracing support"
+    default: false

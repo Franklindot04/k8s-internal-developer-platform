@@ -214,11 +214,30 @@ helm_integration() {
   log "Helm integration completed."
 }
 
+resolve_optional_components() {
+  log "Resolving optional components (placeholder)..."
+
+  if [[ "${enable_metrics}" == "true" ]]; then
+    log "Metrics component enabled (placeholder)..."
+  fi
+
+  if [[ "${enable_health}" == "true" ]]; then
+    log "Health component enabled (placeholder)..."
+  fi
+
+  if [[ "${enable_tracing}" == "true" ]]; then
+    log "Tracing component enabled (placeholder)..."
+  fi
+
+  log "Optional component resolution completed."
+}
+
 run_generator() {
   service_name="$1"
 
   validate_input "${service_name}"
   resolve_language "${service_language}"
+  resolve_optional_components
   preflight_checks
   version_check
   diagnostics
