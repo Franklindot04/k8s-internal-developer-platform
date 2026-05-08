@@ -1,0 +1,8 @@
+maintainers:
+  - name: "Platform Team"
+keywords:
+  - api
+  - service
+  - template
+annotations:
+  example.com/template: "basic-api"

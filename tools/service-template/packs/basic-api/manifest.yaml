@@ -1,0 +1,8 @@
+name: basic-api
+description: "Basic API service template (placeholder)"
+version: 0.1.0
+type: service
+variables:
+  service_name:
+    description: "Name of the service"
+    required: true

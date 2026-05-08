@@ -1,0 +1,5 @@
+# Placeholder Helm values for Basic API Service
+replicaCount: 1
+image:
+  repository: placeholder
+  tag: latest
