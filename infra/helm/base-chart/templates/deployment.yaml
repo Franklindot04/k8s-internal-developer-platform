@@ -30,3 +30,11 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           ports:
             - containerPort: {{ .Values.service.port }}
+
+{{- if .Values.containerSecurityContext.enabled }}
+        securityContext:
+          allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+          runAsNonRoot: {{ .Values.containerSecurityContext.runAsNonRoot }}
+{{- end }}
+

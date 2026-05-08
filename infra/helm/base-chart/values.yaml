@@ -38,3 +38,9 @@ podSecurityContext:
   fsGroup: 1000
 
 podAnnotations: {}
+
+containerSecurityContext:
+  enabled: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: false
