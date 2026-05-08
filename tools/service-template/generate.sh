@@ -143,6 +143,12 @@ cleanup_hook() {
   log "Cleanup hook completed."
 }
 
+diagnostic_summary() {
+  log "Generating diagnostic summary (placeholder)..."
+  # placeholder for future diagnostic summary logic
+  log "Diagnostic summary completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -162,6 +168,7 @@ run_generator() {
   file_writer
   post_generation_hook
   cleanup_hook
+  diagnostic_summary
 
   log "Starting service generation for: ${service_name}"
 
