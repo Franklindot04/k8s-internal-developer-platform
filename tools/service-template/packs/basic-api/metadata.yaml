@@ -14,3 +14,11 @@ ci:
 documentation:
   enabled: true
   format: markdown
+
+compatibility:
+  platform_version: ">=1.0.0"
+  helm_chart_version: ">=0.1.0"
+  languages:
+    - node
+    - python
+    - go
