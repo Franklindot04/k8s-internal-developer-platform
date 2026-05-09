@@ -1,0 +1,5 @@
+service:
+  name: "{{ service_name }}"
+  owner: "platform-team"
+  language: "{{ service_language }}"
+  created_at: "{{ timestamp }}"

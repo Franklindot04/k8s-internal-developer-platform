@@ -26,3 +26,7 @@ compatibility:
 testing:
   enabled: true
   framework: bash
+
+metadata_enrichment:
+  enabled: true
+  format: yaml

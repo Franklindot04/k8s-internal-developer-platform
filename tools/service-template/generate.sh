@@ -262,6 +262,12 @@ template_pack_tests() {
   log "Template pack tests completed."
 }
 
+metadata_enrichment() {
+  log "Enriching service metadata (placeholder)..."
+  # placeholder for future metadata logic
+  log "Metadata enrichment completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -286,6 +292,7 @@ run_generator() {
   documentation_generator "${service_name}"
   compatibility_checks "${service_name}"
   template_pack_tests "${service_name}"
+  metadata_enrichment "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook
