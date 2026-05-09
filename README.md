@@ -21,8 +21,8 @@ Development resumed in **May 2026**, and several open issues from the April 20th
 
 ## High‑Level Components
 
-- `infra/` – Cluster, GitOps, and base infrastructure definitions  
-- `platform/` – Helm charts, shared platform components, and deployment standards  
+- `infra/` – Cluster, GitOps and base infrastructure definitions  
+- `platform/` – Helm charts, shared platform components and deployment standards  
 - `services/` – Example application services deployed onto the platform  
 - `tools/service-template/` – The service generator engine (Stage 5 scaffolding complete)  
 - `docs/` – Architecture, runbooks, and operational documentation  
