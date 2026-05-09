@@ -286,6 +286,26 @@ telemetry_hook() {
   log "Telemetry event emitted."
 }
 
+render_template_file() {
+  local file="$1"
+  envsubst < "$file" > "${file}.rendered"
+  mv "${file}.rendered" "$file"
+}
+
+render_variables() {
+  log "Rendering template variables..."
+
+  export SERVICE_NAME="${service_name}"
+  export SERVICE_LANGUAGE="${service_language}"
+  export TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  find "$1" -type f | while read -r file; do
+    render_template_file "$file"
+  done
+
+  log "Variable rendering completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -303,7 +323,7 @@ run_generator() {
   template_fetcher
   template_validator
   template_renderer
-  render_variables_basic "${rendered_dir}" "${service_name}"
+  render_variables "${rendered_dir}"
   helm_integration "${service_name}"
   ci_integration "${service_name}"
   environment_overlays "${service_name}"
@@ -313,6 +333,7 @@ run_generator() {
   metadata_enrichment "${service_name}"
   analytics_hook "${service_name}"
   publishing_workflow "${service_name}"
+  render_variables_basic
   telemetry_hook "${service_name}"
   template_post_processor
   file_writer
