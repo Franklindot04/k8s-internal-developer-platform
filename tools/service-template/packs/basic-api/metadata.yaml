@@ -30,3 +30,10 @@ testing:
 metadata_enrichment:
   enabled: true
   format: yaml
+
+analytics:
+  enabled: true
+  events:
+    - service_generated
+    - template_used
+    - component_selected

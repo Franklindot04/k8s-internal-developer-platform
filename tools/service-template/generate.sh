@@ -268,6 +268,12 @@ metadata_enrichment() {
   log "Metadata enrichment completed."
 }
 
+analytics_hook() {
+  log "Recording analytics event (placeholder)..."
+  # placeholder for future analytics logic
+  log "Analytics event recorded."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -293,6 +299,7 @@ run_generator() {
   compatibility_checks "${service_name}"
   template_pack_tests "${service_name}"
   metadata_enrichment "${service_name}"
+  analytics_hook "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook
