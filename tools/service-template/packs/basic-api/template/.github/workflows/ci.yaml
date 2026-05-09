@@ -1,0 +1,20 @@
+name: CI (Placeholder)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Run tests (placeholder)
+        run: echo "Running tests..."
+
+      - name: Build container (placeholder)
+        run: echo "Building container..."

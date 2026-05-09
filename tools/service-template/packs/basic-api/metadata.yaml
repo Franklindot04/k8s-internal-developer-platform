@@ -1,3 +1,6 @@
 helm:
   enabled: true
   chart: "base-chart"
+ci:
+  enabled: true
+  provider: github-actions

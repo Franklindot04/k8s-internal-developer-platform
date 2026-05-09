@@ -232,6 +232,12 @@ resolve_optional_components() {
   log "Optional component resolution completed."
 }
 
+ci_integration() {
+  log "Integrating CI pipeline (placeholder)..."
+  # placeholder for future CI integration logic
+  log "CI integration completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -251,6 +257,7 @@ run_generator() {
   template_renderer
   render_variables_basic "${rendered_dir}" "${service_name}"
   helm_integration "${service_name}"
+  ci_integration "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook
