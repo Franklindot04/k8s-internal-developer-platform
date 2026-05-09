@@ -43,3 +43,10 @@ publishing:
   registry: "local"
   version: "0.1.0"
 
+telemetry:
+  enabled: true
+  events:
+    - generation_started
+    - generation_completed
+    - generation_failed
+

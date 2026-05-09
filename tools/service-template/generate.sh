@@ -280,6 +280,12 @@ publishing_workflow() {
   log "Publishing workflow completed."
 }
 
+telemetry_hook() {
+  log "Emitting telemetry event (placeholder)..."
+  # placeholder for future telemetry logic
+  log "Telemetry event emitted."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -307,6 +313,7 @@ run_generator() {
   metadata_enrichment "${service_name}"
   analytics_hook "${service_name}"
   publishing_workflow "${service_name}"
+  telemetry_hook "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook
