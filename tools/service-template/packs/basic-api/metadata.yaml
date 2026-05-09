@@ -1,7 +1,7 @@
 helm:
   enabled: true
   chart: "base-chart"
-  
+
 ci:
   enabled: true
   provider: github-actions
@@ -10,3 +10,7 @@ ci:
   - dev
   - staging
   - prod
+
+documentation:
+  enabled: true
+  format: markdown
