@@ -22,3 +22,7 @@ compatibility:
     - node
     - python
     - go
+
+testing:
+  enabled: true
+  framework: bash

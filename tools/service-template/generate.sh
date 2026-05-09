@@ -256,6 +256,12 @@ compatibility_checks() {
   log "Compatibility checks completed."
 }
 
+template_pack_tests() {
+  log "Running template pack tests (placeholder)..."
+  # placeholder for future test execution logic
+  log "Template pack tests completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -279,6 +285,7 @@ run_generator() {
   environment_overlays "${service_name}"
   documentation_generator "${service_name}"
   compatibility_checks "${service_name}"
+  template_pack_tests "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook
