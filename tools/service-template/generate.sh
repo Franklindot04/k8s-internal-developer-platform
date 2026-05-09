@@ -238,6 +238,12 @@ ci_integration() {
   log "CI integration completed."
 }
 
+environment_overlays() {
+  log "Applying environment overlays (placeholder)..."
+  # placeholder for future overlay logic
+  log "Environment overlays completed."
+}
+
 run_generator() {
   service_name="$1"
 
@@ -258,6 +264,7 @@ run_generator() {
   render_variables_basic "${rendered_dir}" "${service_name}"
   helm_integration "${service_name}"
   ci_integration "${service_name}"
+  environment_overlays "${service_name}"
   template_post_processor
   file_writer
   post_generation_hook

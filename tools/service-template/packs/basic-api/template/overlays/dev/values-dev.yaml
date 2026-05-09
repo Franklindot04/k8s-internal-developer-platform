@@ -1,0 +1,2 @@
+# Environment-specific values for {{ service_name }} (placeholder)
+replicaCount: 1

@@ -1,6 +1,12 @@
 helm:
   enabled: true
   chart: "base-chart"
+  
 ci:
   enabled: true
   provider: github-actions
+  
+  environments:
+  - dev
+  - staging
+  - prod
