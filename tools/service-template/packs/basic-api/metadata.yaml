@@ -37,3 +37,9 @@ analytics:
     - service_generated
     - template_used
     - component_selected
+
+publishing:
+  enabled: true
+  registry: "local"
+  version: "0.1.0"
+
