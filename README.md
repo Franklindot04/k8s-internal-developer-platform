@@ -12,7 +12,7 @@ This repository contains a Kubernetes‑based Internal Developer Platform (IDP) 
   **[Helm integration](ca://s?q=Explain_Helm_integration)**,  
   **[CI scaffolding](ca://s?q=Explain_CI_integration)**,  
   **[environment overlays](ca://s?q=Explain_environment_overlays)**,  
-  **[metadata enrichment](ca://s?q=Explain_metadata_enrichment)**, and  
+  **[metadata enrichment](ca://s?q=Explain_metadata_enrichment)** and  
   **[analytics + telemetry](ca://s?q=Explain_service_creation_telemetry)**.
 
 Development resumed in **May 2026** and several open issues from the April 20th session remain active.
