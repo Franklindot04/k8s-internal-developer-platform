@@ -54,7 +54,7 @@ The service generator now includes scaffolding for:
 
 - Platform / DevOps / SRE Lead: **Franklin**  
 - Application Platform Engineer: **Mordecai Nathan**  
-- Application Platform Engineer: **Escasr Maris**  
+- Application Platform Engineer: **Escar Maris**  
 
 ---
 
