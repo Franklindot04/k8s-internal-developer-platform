@@ -52,7 +52,7 @@ The service generator now includes scaffolding for:
 
 ## Team Roles
 
-- Platform / DevOps / SRE Lead: **Franklin**  
+- Platform / DevOps / SRE Lead: **Ajero Franklin**  
 - Application Platform Engineer: **Mordecai Nathan**  
 - Application Platform Engineer: **Escar Maris**  
 
