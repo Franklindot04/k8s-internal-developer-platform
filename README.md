@@ -69,8 +69,9 @@ The service generator now includes scaffolding for:
 Current status:
 -  ⁠Stage 6 has not started yet
 -  ⁠Priority shifted to resolving or triaging the remaining open issues first
+-  Real variable rendering is planned as the first major Stage 6 implementation task
 
 
 
 
-Last updated: 09 May / 19 may 2026  by Franklin
+Last updated: 09 May / 20 may 2026  by Franklin
