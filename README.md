@@ -71,6 +71,14 @@ Current status:
 -  ⁠Priority shifted to resolving or triaging the remaining open issues first
 -  Real variable rendering is planned as the first major Stage 6 implementation task
 
+Next session goals:
+- ⁠ ⁠Review remaining open issues
+- Close, defer, or document blockers
+- Verify telemetry scaffolding stability
+-  Begin real variable rendering implementation
+
+ 
+
 
 
 
