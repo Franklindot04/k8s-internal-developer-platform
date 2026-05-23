@@ -12,10 +12,11 @@ This repository contains a Kubernetes‑based Internal Developer Platform (IDP) 
   **[Helm integration](ca://s?q=Explain_Helm_integration)**,  
   **[CI scaffolding](ca://s?q=Explain_CI_integration)**,  
   **[environment overlays](ca://s?q=Explain_environment_overlays)**,  
-  **[metadata enrichment](ca://s?q=Explain_metadata_enrichment)** and  
-  **[analytics + telemetry](ca://s?q=Explain_service_creation_telemetry)**.
+  **[metadata enrichment](ca://s?q=Explain_metadata_enrichment)**,  
+  **[analytics](ca://s?q=Explain_analytics_hooks)** and  
+  **[service creation telemetry](ca://s?q=Explain_service_creation_telemetry)**.
 
-Development resumed in **May 2026** and several open issues from the April 20th session remain active.
+All six issues from the April 20th milestone have been reviewed and closed as of May 2026.
 
 ---
 
@@ -31,7 +32,7 @@ Development resumed in **May 2026** and several open issues from the April 20th 
 
 ## Generator Capabilities (Current Status)
 
-The service generator now includes scaffolding for:
+The service generator currently includes scaffolding for:
 
 - **[Template packs](ca://s?q=Explain_template_packs)**  
 - Real variable rendering (Stage 6 in progress)  
@@ -48,6 +49,9 @@ The service generator now includes scaffolding for:
 - Publishing workflow  
 - Service creation telemetry  
 
+These features form the structural foundation.  
+Functional implementation continues under Stage 6.
+
 ---
 
 ## Team Roles
@@ -61,25 +65,9 @@ The service generator now includes scaffolding for:
 ## Project Status
 
 - Active development resumed: **09 May 2026**  
+- All six issues from the April 20th session have been closed  
 - Last major structural milestone: *Service creation telemetry scaffolding*  
-- 6 open issues remain from the April 20th session  
-- Stage 6 (functional implementation) begins next
-- Implementing real variable rendering
+- Stage 6 (functional implementation) is now underway  
+- Current focus: Implementing real variable rendering  
 
-Current status:
--  ⁠Stage 6 has not started yet
--  ⁠Priority shifted to resolving or triaging the remaining open issues first
--  Real variable rendering is planned as the first major Stage 6 implementation task
-
-Next session goals:
-- ⁠ ⁠Review remaining open issues
-- Close, defer, or document blockers
-- Verify telemetry scaffolding stability
--  Begin real variable rendering implementation
-
- 
-
-
-
-
-Last updated: 09 May / 23 may 2026  by Franklin
+_Last updated: 23 May 2026 by Franklin_
