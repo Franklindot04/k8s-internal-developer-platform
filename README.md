@@ -4,9 +4,9 @@ This repository is being rebuilt into a local-first Kubernetes Internal Develope
 
 ## Current Status
 
-The project is in Stage 2: reproducible local Kubernetes platform. Stage 1 established the recovery and engineering baseline, and Stage 2 adds a real Kind-based local cluster foundation.
+The project is in Stage 3: GitOps control plane. Stage 1 established the recovery and engineering baseline, Stage 2 added a real Kind-based local cluster foundation, and Stage 3 adds Argo CD bootstrap and reconciliation proof.
 
-The local Kubernetes foundation is implemented with Kind. Argo CD, Helm golden-path charts, Kyverno policies, observability, service generation, and deployment workflows remain target capabilities for later stages.
+The local Kubernetes foundation is implemented with Kind. Argo CD is installed from a pinned and checksum-verified upstream manifest, then used to reconcile minimal platform bootstrap state. Helm golden-path charts, Kyverno policies, observability, service generation, environment promotion, and application delivery workflows remain target capabilities for later stages.
 
 ## Target Capabilities
 
@@ -27,8 +27,8 @@ See [docs/architecture/platform-overview.md](docs/architecture/platform-overview
 
 ## Repository Structure
 
-- `infra/` - future cluster bootstrap, GitOps root configuration, environment infrastructure, and platform policy bootstrap.
-- `platform/` - future reusable platform capabilities, Helm golden path, add-ons, and shared contracts.
+- `infra/` - cluster bootstrap, Argo CD control-plane bootstrap configuration, future environment infrastructure, and platform policy bootstrap.
+- `platform/` - GitOps-managed platform bootstrap state plus future reusable platform capabilities, Helm golden path, add-ons, and shared contracts.
 - `services/` - future reference workloads and generated golden-path demonstration services.
 - `tools/` - future developer-facing tooling, service generation, and repository support tooling.
 - `docs/` - architecture, ADRs, recovery decisions, roadmap, and later developer/operator documentation.
@@ -45,7 +45,7 @@ See [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap
 
 ## Validation
 
-The repository includes a small validation baseline:
+The repository includes a small static validation baseline:
 
 ```bash
 make help
@@ -53,7 +53,7 @@ make verify-tools
 make validate
 ```
 
-The validation checks repository structure, Markdown hygiene and internal links, YAML syntax for files that exist, shell syntax, and GitHub Actions workflow YAML. It does not create a Kubernetes cluster, deploy workloads, publish artifacts, or require cloud credentials.
+The validation checks repository structure, Markdown hygiene and internal links, YAML syntax for files that exist, shell syntax, and GitHub Actions workflow YAML. It does not create a Kubernetes cluster, install Argo CD, deploy workloads, publish artifacts, or require cloud credentials.
 
 ## Local Kubernetes
 
@@ -68,6 +68,21 @@ make cluster-delete
 ```
 
 The local platform uses cluster name `idp-local` and kubeconfig context `kind-idp-local`. See [docs/local-kubernetes.md](docs/local-kubernetes.md) for supported versions, lifecycle behavior, validation, and troubleshooting.
+
+## GitOps Control Plane
+
+Stage 3 provides a reproducible local Argo CD control plane and a minimal Git-managed bootstrap resource:
+
+```bash
+make gitops-install
+make gitops-bootstrap
+make gitops-status
+make gitops-validate
+make gitops-test-reconciliation
+make gitops-delete
+```
+
+The GitOps bootstrap uses the `argocd` namespace, reconciles the `platform-bootstrap` Application from `main` by default, and proves drift correction plus managed-resource recreation. See [docs/gitops.md](docs/gitops.md).
 
 ## Contributing
 

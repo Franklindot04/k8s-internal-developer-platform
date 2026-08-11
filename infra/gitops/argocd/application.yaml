@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-bootstrap
+  namespace: argocd
+spec:
+  project: platform-bootstrap
+  source:
+    repoURL: https://github.com/Franklindot04/k8s-internal-developer-platform.git
+    targetRevision: main
+    path: platform/gitops/bootstrap
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - PruneLast=true

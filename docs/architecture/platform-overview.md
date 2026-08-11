@@ -31,7 +31,7 @@ Application teams remain responsible for service behavior, application tests, se
 
 ## Current Repository State
 
-The current repository includes the recovery and engineering baseline plus a reproducible local Kubernetes foundation using Kind. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, and local cluster lifecycle commands. It does not yet contain an Argo CD installation, Helm golden-path chart, Kyverno policy set, observability stack, service generator, or application deployment workflow.
+The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, and a reproducible Argo CD GitOps control plane for local reconciliation. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, and a minimal Git-managed platform bootstrap resource. It does not yet contain a Helm golden-path chart, Kyverno policy set, observability stack, service generator, environment promotion model, or application deployment workflow.
 
 ## Target Architecture
 
@@ -52,9 +52,9 @@ The platform owner maintains cluster bootstrap, GitOps structure, Helm standards
 
 ## Control Plane Concepts
 
-Kind will provide the local Kubernetes cluster. Argo CD will reconcile desired state from Git into the cluster. Kyverno will enforce Kubernetes-native policies. GitHub Actions will validate repository changes before merge.
+Kind provides the local Kubernetes cluster. Argo CD reconciles Stage 3 platform bootstrap state from Git into the cluster. Kyverno will enforce Kubernetes-native policies in a later stage. GitHub Actions validates repository changes before merge.
 
-Kind is implemented as the Stage 2 local Kubernetes foundation. Argo CD, Kyverno, and the later platform components remain planned future-stage work.
+Kind is implemented as the Stage 2 local Kubernetes foundation. Argo CD is implemented as the Stage 3 GitOps control plane using a pinned non-HA upstream manifest for local development. Kyverno and later platform components remain planned future-stage work.
 
 ## Workload Plane Concepts
 
@@ -62,7 +62,7 @@ Workloads will be deployed through standardized Kubernetes manifests rendered by
 
 ## GitOps Operating Model
 
-Git will be the source of truth. Platform and application configuration will be reviewed through pull requests, merged into `main`, and reconciled into the local cluster by Argo CD in a later stage. Promotion between environments will be modeled through explicit Git changes rather than manual cluster mutation.
+Git is the source of truth for Stage 3 platform bootstrap state. Platform configuration is reviewed through pull requests, merged into `main`, and reconciled into the local cluster by Argo CD. CI tests the exact commit under review by temporarily rendering the Argo CD Application target revision to the immutable commit SHA. Promotion between environments remains a later-stage concern and will be modeled through explicit Git changes rather than manual cluster mutation.
 
 ## Developer Golden Path
 
@@ -76,7 +76,7 @@ The planned environment model includes local platform bootstrap plus development
 
 Security will be layered across repository validation, branch review, container and dependency checks, Kubernetes RBAC, Pod Security Standards, namespace isolation, network policy, secret handling, and Kyverno policy enforcement.
 
-Stage 1 does not implement these controls beyond repository validation and documentation.
+Current controls include repository validation, protected pull-request workflow, pinned local Kubernetes tooling, pinned and checksum-verified Argo CD installation, and a restricted Stage 3 AppProject. Kyverno policy enforcement remains planned future-stage work.
 
 ## Observability Model
 

@@ -1,0 +1,79 @@
+name: GitOps Control Plane
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/gitops-control-plane.yml
+      - infra/gitops/**
+      - platform/gitops/**
+      - scripts/gitops/**
+      - scripts/kubernetes/**
+      - scripts/ci/install-local-kubernetes-tools.sh
+      - infra/kubernetes/kind/**
+      - Makefile
+      - docs/gitops.md
+      - docs/adr/0007-bootstrap-gitops-control-plane.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  argocd-reconciliation:
+    name: Argo CD reconciliation validation
+    runs-on: ubuntu-24.04
+    env:
+      GITOPS_TEST_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.GITOPS_TEST_REVISION }}
+
+      - name: Install pinned Kubernetes tools
+        run: bash scripts/ci/install-local-kubernetes-tools.sh
+
+      - name: Create local Kubernetes cluster
+        run: make cluster-create
+
+      - name: Validate local Kubernetes cluster
+        run: make cluster-validate
+
+      - name: Install Argo CD control plane
+        run: make gitops-install
+
+      - name: Bootstrap GitOps Application at tested commit
+        env:
+          GITOPS_TARGET_REVISION: ${{ env.GITOPS_TEST_REVISION }}
+        run: make gitops-bootstrap
+
+      - name: Validate GitOps control plane
+        run: make gitops-validate
+
+      - name: Prove reconciliation and self-healing
+        run: make gitops-test-reconciliation
+
+      - name: Remove GitOps state
+        run: make gitops-delete
+
+      - name: Confirm Kind cluster remains healthy
+        run: make cluster-validate
+
+      - name: Reinstall Argo CD control plane
+        run: make gitops-install
+
+      - name: Rebootstrap GitOps Application at tested commit
+        env:
+          GITOPS_TARGET_REVISION: ${{ env.GITOPS_TEST_REVISION }}
+        run: make gitops-bootstrap
+
+      - name: Validate reinstalled GitOps state
+        run: make gitops-validate
+
+      - name: Clean up GitOps state
+        if: always()
+        run: make gitops-delete
+
+      - name: Delete local Kubernetes cluster
+        if: always()
+        run: make cluster-delete

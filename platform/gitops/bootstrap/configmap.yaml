@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-bootstrap-metadata
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: platform-bootstrap
+    app.kubernetes.io/part-of: internal-developer-platform
+    platform.internal-developer-platform.io/stage: gitops-control-plane
+data:
+  owner: platform
+  purpose: stage-3-gitops-reconciliation-proof
+  managed-by: argocd
+  expected-state: git-declared

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-system
+  labels:
+    app.kubernetes.io/name: platform-system
+    app.kubernetes.io/part-of: internal-developer-platform
+    platform.internal-developer-platform.io/stage: gitops-control-plane

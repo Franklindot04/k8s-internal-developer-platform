@@ -17,10 +17,18 @@ required_paths=(
   docs/roadmap/implementation-roadmap.md
   docs/repository/structure-contract.md
   docs/local-kubernetes.md
+  docs/gitops.md
+  docs/adr/0007-bootstrap-gitops-control-plane.md
   infra/kubernetes/kind/cluster.yaml
   infra/kubernetes/kind/versions.env
+  infra/gitops/argocd/versions.env
+  infra/gitops/argocd/appproject.yaml
+  infra/gitops/argocd/application.yaml
+  platform/gitops/bootstrap/namespace.yaml
+  platform/gitops/bootstrap/configmap.yaml
   .github/workflows/validate.yml
   .github/workflows/local-kubernetes.yml
+  .github/workflows/gitops-control-plane.yml
   scripts/verify-tools.sh
   scripts/validate.sh
   scripts/validate-structure.sh
@@ -28,6 +36,7 @@ required_paths=(
   scripts/validate-yaml.rb
   scripts/validate-shell.sh
   scripts/kubernetes/cluster.sh
+  scripts/gitops/argocd.sh
   scripts/ci/install-local-kubernetes-tools.sh
 )
 
