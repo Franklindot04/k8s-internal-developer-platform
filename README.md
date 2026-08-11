@@ -4,9 +4,9 @@ This repository is being rebuilt into a local-first Kubernetes Internal Develope
 
 ## Current Status
 
-The project is in Stage 1: recovery and engineering baseline. The repository has been audited after recovery from historical branches, and implementation is being rebuilt from a clean, reviewable foundation.
+The project is in Stage 2: reproducible local Kubernetes platform. Stage 1 established the recovery and engineering baseline, and Stage 2 adds a real Kind-based local cluster foundation.
 
-Runtime platform components are not implemented yet. Kind, Argo CD, Helm golden-path charts, Kyverno policies, observability, service generation, and deployment workflows are target capabilities for later stages.
+The local Kubernetes foundation is implemented with Kind. Argo CD, Helm golden-path charts, Kyverno policies, observability, service generation, and deployment workflows remain target capabilities for later stages.
 
 ## Target Capabilities
 
@@ -45,7 +45,7 @@ See [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap
 
 ## Validation
 
-Stage 1 introduces a small validation baseline:
+The repository includes a small validation baseline:
 
 ```bash
 make help
@@ -53,7 +53,21 @@ make verify-tools
 make validate
 ```
 
-The validation currently checks repository structure, Markdown hygiene and internal links, YAML syntax for files that exist, shell syntax, and GitHub Actions workflow YAML. It does not create a Kubernetes cluster, deploy workloads, publish artifacts, or require cloud credentials.
+The validation checks repository structure, Markdown hygiene and internal links, YAML syntax for files that exist, shell syntax, and GitHub Actions workflow YAML. It does not create a Kubernetes cluster, deploy workloads, publish artifacts, or require cloud credentials.
+
+## Local Kubernetes
+
+Stage 2 provides a reproducible local Kubernetes foundation using a named Kind cluster:
+
+```bash
+make verify-cluster-tools
+make cluster-create
+make cluster-status
+make cluster-validate
+make cluster-delete
+```
+
+The local platform uses cluster name `idp-local` and kubeconfig context `kind-idp-local`. See [docs/local-kubernetes.md](docs/local-kubernetes.md) for supported versions, lifecycle behavior, validation, and troubleshooting.
 
 ## Contributing
 

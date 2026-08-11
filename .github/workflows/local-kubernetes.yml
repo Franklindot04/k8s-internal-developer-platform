@@ -1,0 +1,51 @@
+name: Local Kubernetes Foundation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/local-kubernetes.yml
+      - infra/kubernetes/kind/**
+      - scripts/kubernetes/**
+      - scripts/ci/install-local-kubernetes-tools.sh
+      - Makefile
+      - docs/local-kubernetes.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kind-lifecycle:
+    name: Kind lifecycle validation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pinned Kubernetes tools
+        run: bash scripts/ci/install-local-kubernetes-tools.sh
+
+      - name: Verify cluster tools
+        run: make verify-cluster-tools
+
+      - name: Create local Kubernetes cluster
+        run: make cluster-create
+
+      - name: Validate local Kubernetes cluster
+        run: make cluster-validate
+
+      - name: Show cluster status
+        run: make cluster-status
+
+      - name: Delete local Kubernetes cluster before recreation
+        run: make cluster-delete
+
+      - name: Recreate local Kubernetes cluster
+        run: make cluster-create
+
+      - name: Validate recreated local Kubernetes cluster
+        run: make cluster-validate
+
+      - name: Delete local Kubernetes cluster after validation
+        if: always()
+        run: make cluster-delete
