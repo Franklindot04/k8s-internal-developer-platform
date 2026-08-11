@@ -18,17 +18,29 @@ required_paths=(
   docs/repository/structure-contract.md
   docs/local-kubernetes.md
   docs/gitops.md
+  docs/golden-path.md
   docs/adr/0007-bootstrap-gitops-control-plane.md
+  docs/adr/0008-use-opinionated-helm-golden-path.md
   infra/kubernetes/kind/cluster.yaml
   infra/kubernetes/kind/versions.env
   infra/gitops/argocd/versions.env
   infra/gitops/argocd/appproject.yaml
   infra/gitops/argocd/application.yaml
+  infra/gitops/golden-path/appproject.yaml
+  infra/gitops/golden-path/application.yaml
   platform/gitops/bootstrap/namespace.yaml
   platform/gitops/bootstrap/configmap.yaml
+  platform/helm-charts/versions.env
+  platform/helm-charts/golden-path/Chart.yaml
+  platform/helm-charts/golden-path/values.yaml
+  platform/helm-charts/golden-path/values.schema.json
+  platform/helm-charts/golden-path/tests/values/runtime-kind.yaml
+  platform/helm-charts/golden-path/tests/values/feature-complete.yaml
+  platform/helm-charts/golden-path/tests/values/invalid-image.yaml
   .github/workflows/validate.yml
   .github/workflows/local-kubernetes.yml
   .github/workflows/gitops-control-plane.yml
+  .github/workflows/golden-path-helm.yml
   scripts/verify-tools.sh
   scripts/validate.sh
   scripts/validate-structure.sh
@@ -37,7 +49,11 @@ required_paths=(
   scripts/validate-shell.sh
   scripts/kubernetes/cluster.sh
   scripts/gitops/argocd.sh
+  scripts/helm/validate-golden-path.sh
+  scripts/helm/assert-golden-path-render.rb
+  scripts/golden-path/lifecycle.sh
   scripts/ci/install-local-kubernetes-tools.sh
+  scripts/ci/install-helm-tools.sh
 )
 
 missing=0

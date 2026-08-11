@@ -1,0 +1,3 @@
+image:
+  repository: registry.k8s.io/e2e-test-images/agnhost
+  tag: latest

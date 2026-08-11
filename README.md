@@ -4,9 +4,9 @@ This repository is being rebuilt into a local-first Kubernetes Internal Develope
 
 ## Current Status
 
-The project is in Stage 3: GitOps control plane. Stage 1 established the recovery and engineering baseline, Stage 2 added a real Kind-based local cluster foundation, and Stage 3 adds Argo CD bootstrap and reconciliation proof.
+The project is in Stage 4: production-quality golden-path Helm chart. Stage 1 established the recovery and engineering baseline, Stage 2 added a real Kind-based local cluster foundation, Stage 3 added Argo CD bootstrap and reconciliation proof, and Stage 4 adds a reusable Helm workload contract with GitOps runtime validation.
 
-The local Kubernetes foundation is implemented with Kind. Argo CD is installed from a pinned and checksum-verified upstream manifest, then used to reconcile minimal platform bootstrap state. Helm golden-path charts, Kyverno policies, observability, service generation, environment promotion, and application delivery workflows remain target capabilities for later stages.
+The local Kubernetes foundation is implemented with Kind. Argo CD is installed from a pinned and checksum-verified upstream manifest, then used to reconcile minimal platform bootstrap state and the golden-path demo workload. Kyverno policies, observability, service generation, environment promotion, and application delivery workflows remain target capabilities for later stages.
 
 ## Target Capabilities
 
@@ -28,12 +28,12 @@ See [docs/architecture/platform-overview.md](docs/architecture/platform-overview
 ## Repository Structure
 
 - `infra/` - cluster bootstrap, Argo CD control-plane bootstrap configuration, future environment infrastructure, and platform policy bootstrap.
-- `platform/` - GitOps-managed platform bootstrap state plus future reusable platform capabilities, Helm golden path, add-ons, and shared contracts.
+- `platform/` - GitOps-managed platform bootstrap state, reusable Helm golden-path chart, and future platform add-ons and shared contracts.
 - `services/` - future reference workloads and generated golden-path demonstration services.
 - `tools/` - future developer-facing tooling, service generation, and repository support tooling.
 - `docs/` - architecture, ADRs, recovery decisions, roadmap, and later developer/operator documentation.
-- `.github/` - repository validation workflow and future repository automation.
-- `scripts/` - Stage 1 repository validation scripts.
+- `.github/` - repository validation and local platform proof workflows.
+- `scripts/` - repository validation, local Kubernetes, GitOps, Helm chart, and golden-path lifecycle scripts.
 
 The detailed directory contract is documented in [docs/repository/structure-contract.md](docs/repository/structure-contract.md).
 
@@ -83,6 +83,21 @@ make gitops-delete
 ```
 
 The GitOps bootstrap uses the `argocd` namespace, reconciles the `platform-bootstrap` Application from `main` by default, and proves drift correction plus managed-resource recreation. See [docs/gitops.md](docs/gitops.md).
+
+## Golden-Path Helm Chart
+
+Stage 4 provides a reusable Helm chart for ordinary HTTP services:
+
+```bash
+make verify-helm-tools
+make helm-validate
+make golden-path-bootstrap
+make golden-path-status
+make golden-path-validate
+make golden-path-delete
+```
+
+The chart deploys through Argo CD, uses a dedicated `golden-path` AppProject and `golden-path-demo` Application, and validates secure defaults including digest-pinned images, probes, resources, security contexts, Service routing, ConfigMap data, and disruption handling. See [docs/golden-path.md](docs/golden-path.md).
 
 ## Contributing
 

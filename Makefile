@@ -1,9 +1,10 @@
-.PHONY: help verify-tools verify-cluster-tools validate cluster-create cluster-status cluster-validate cluster-delete gitops-install gitops-bootstrap gitops-status gitops-validate gitops-test-reconciliation gitops-delete
+.PHONY: help verify-tools verify-cluster-tools verify-helm-tools validate cluster-create cluster-status cluster-validate cluster-delete gitops-install gitops-bootstrap gitops-status gitops-validate gitops-test-reconciliation gitops-delete helm-lint helm-render helm-validate helm-server-dry-run golden-path-bootstrap golden-path-status golden-path-validate golden-path-delete
 
 help:
 	@printf '%s\n' 'Available targets:'
 	@printf '%s\n' '  make verify-tools          Check repository validation tools'
 	@printf '%s\n' '  make verify-cluster-tools  Check local Kubernetes lifecycle tools'
+	@printf '%s\n' '  make verify-helm-tools     Check pinned Helm chart validation tools'
 	@printf '%s\n' '  make validate              Run repository validation'
 	@printf '%s\n' '  make cluster-create        Create the idp-local Kind cluster'
 	@printf '%s\n' '  make cluster-status        Show idp-local cluster status'
@@ -15,12 +16,23 @@ help:
 	@printf '%s\n' '  make gitops-validate       Validate Argo CD and bootstrap reconciliation'
 	@printf '%s\n' '  make gitops-test-reconciliation  Prove drift correction and self-healing'
 	@printf '%s\n' '  make gitops-delete         Delete only Stage 3 GitOps state'
+	@printf '%s\n' '  make helm-lint             Run strict golden-path chart linting'
+	@printf '%s\n' '  make helm-render           Render golden-path chart test profiles'
+	@printf '%s\n' '  make helm-validate         Run static golden-path chart validation'
+	@printf '%s\n' '  make helm-server-dry-run   Server-side dry-run the runtime chart render'
+	@printf '%s\n' '  make golden-path-bootstrap Bootstrap the golden-path app through Argo CD'
+	@printf '%s\n' '  make golden-path-status    Show golden-path runtime status'
+	@printf '%s\n' '  make golden-path-validate  Validate golden-path runtime reconciliation'
+	@printf '%s\n' '  make golden-path-delete    Delete only Stage 4 golden-path runtime state'
 
 verify-tools:
 	@bash scripts/verify-tools.sh
 
 verify-cluster-tools:
 	@bash scripts/kubernetes/cluster.sh verify-tools
+
+verify-helm-tools:
+	@bash scripts/helm/validate-golden-path.sh verify-tools
 
 validate:
 	@bash scripts/validate.sh
@@ -54,3 +66,27 @@ gitops-test-reconciliation:
 
 gitops-delete:
 	@bash scripts/gitops/argocd.sh delete
+
+helm-lint:
+	@bash scripts/helm/validate-golden-path.sh lint
+
+helm-render:
+	@bash scripts/helm/validate-golden-path.sh render
+
+helm-validate:
+	@bash scripts/helm/validate-golden-path.sh validate
+
+helm-server-dry-run:
+	@bash scripts/helm/validate-golden-path.sh server-dry-run
+
+golden-path-bootstrap:
+	@bash scripts/golden-path/lifecycle.sh bootstrap
+
+golden-path-status:
+	@bash scripts/golden-path/lifecycle.sh status
+
+golden-path-validate:
+	@bash scripts/golden-path/lifecycle.sh validate
+
+golden-path-delete:
+	@bash scripts/golden-path/lifecycle.sh delete

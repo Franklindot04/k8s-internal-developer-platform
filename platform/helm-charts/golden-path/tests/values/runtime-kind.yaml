@@ -1,0 +1,32 @@
+replicaCount: 2
+
+image:
+  repository: registry.k8s.io/e2e-test-images/agnhost
+  tag: "2.53"
+  digest: sha256:99c6b4bb4a1e1df3f0b3752168c89358794d02258ebebc26bf21c29399011a85
+  pullPolicy: IfNotPresent
+
+command:
+  - /agnhost
+args:
+  - netexec
+  - --http-port=8080
+
+config:
+  create: true
+  data:
+    PLATFORM_PROFILE: golden-path-runtime
+    PLATFORM_STAGE: stage-4
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: golden-path
+        app.kubernetes.io/instance: golden-path-demo
