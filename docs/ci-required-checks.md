@@ -49,3 +49,5 @@ This repository does not currently have a merge queue configured. `merge_group` 
 ## Future Required Checks
 
 Any future required check should use an always-reporting final gate with the protected status-check name. Expensive setup and runtime proof may be conditional, but the final required context must not be hidden behind workflow-level pull-request path filters.
+
+Before a new heavy runtime gate is promoted to required status, verify both paths on real pull requests: relevant changes must execute runtime validation and report through the final gate, while irrelevant changes must skip runtime validation intentionally and still report final-gate success.
