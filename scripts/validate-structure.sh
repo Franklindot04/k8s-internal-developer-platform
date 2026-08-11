@@ -19,8 +19,10 @@ required_paths=(
   docs/local-kubernetes.md
   docs/gitops.md
   docs/golden-path.md
+  docs/ci-required-checks.md
   docs/adr/0007-bootstrap-gitops-control-plane.md
   docs/adr/0008-use-opinionated-helm-golden-path.md
+  docs/adr/0009-use-always-reporting-required-check-gates.md
   infra/kubernetes/kind/cluster.yaml
   infra/kubernetes/kind/versions.env
   infra/gitops/argocd/versions.env
@@ -49,6 +51,9 @@ required_paths=(
   scripts/validate-shell.sh
   scripts/kubernetes/cluster.sh
   scripts/gitops/argocd.sh
+  scripts/ci/workflow-scope.sh
+  scripts/ci/test-workflow-scope.sh
+  scripts/validate-workflow-governance.rb
   scripts/helm/validate-golden-path.sh
   scripts/helm/assert-golden-path-render.rb
   scripts/golden-path/lifecycle.sh

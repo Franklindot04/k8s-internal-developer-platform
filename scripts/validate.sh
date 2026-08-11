@@ -15,6 +15,8 @@ run "Validate repository structure" bash scripts/validate-structure.sh
 run "Validate Markdown" ruby scripts/validate-markdown.rb
 run "Validate YAML" ruby scripts/validate-yaml.rb
 run "Validate shell syntax" bash scripts/validate-shell.sh
+run "Test workflow scope classifier" bash scripts/ci/test-workflow-scope.sh
+run "Validate workflow governance" ruby scripts/validate-workflow-governance.rb
 
 if command -v shellcheck >/dev/null 2>&1; then
   run "Run ShellCheck" shellcheck scripts/*.sh scripts/kubernetes/*.sh scripts/ci/*.sh scripts/gitops/*.sh scripts/helm/*.sh scripts/golden-path/*.sh
