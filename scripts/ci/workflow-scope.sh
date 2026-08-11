@@ -22,10 +22,9 @@ matches_any() {
   shift
 
   for pattern in "$@"; do
+    # Repository-owned patterns are intentionally expanded as dynamic shell globs.
+    # shellcheck disable=SC2254
     case "$path" in
-      # Intentionally unquoted: repository-owned patterns are dynamic globs.
-      # Quoting would make each pattern literal and break scope classification.
-      # shellcheck disable=SC2254
       $pattern)
         return 0
         ;;
