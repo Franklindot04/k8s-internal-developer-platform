@@ -2,11 +2,13 @@
 
 Thank you for contributing to the Kubernetes Internal Developer Platform.
 
+The project is currently being rebuilt from an audited recovery baseline. Documentation and implementation should always describe what the repository can actually do today, while keeping future architecture clearly marked as planned work.
+
 This project uses a branch-based workflow. Contributors should not push directly to `main`. All changes should be made in a separate branch and submitted through a pull request.
 
 ## Branch Workflow
 
-Create a new branch from `main` for each change.
+Create a new branch from `main` for each focused change.
 
 Recommended branch naming:
 
@@ -36,7 +38,7 @@ Each pull request should include:
 
 ## Reviews
 
-At least one other contributor should review a pull request before it is merged.
+Meaningful changes should be reviewed before they are merged. High-impact architecture, Kubernetes, GitOps, security, CI/CD, and generator changes should include validation evidence and should not be bundled with unrelated work.
 
 Reviewers should check:
 
@@ -49,7 +51,14 @@ Reviewers should check:
 
 ## Validation
 
-Before opening a pull request, run relevant checks where possible.
+Before opening a pull request, run the baseline checks:
+
+```bash
+make verify-tools
+make validate
+```
+
+Also run relevant checks for the area being changed.
 
 For Kubernetes, Helm, GitOps, and platform changes, validate:
 
@@ -58,7 +67,7 @@ For Kubernetes, Helm, GitOps, and platform changes, validate:
 * Helm chart rendering
 * Environment overlay correctness
 * CI workflow syntax
-* Template generator output
+* Service generator output
 * Documentation accuracy
 
 Where applicable, include the commands or checks you ran in the pull request description.
@@ -92,3 +101,7 @@ Examples:
 The `main` branch should represent the stable project state.
 
 Do not commit directly to `main`. Use branches and pull requests.
+
+## Historical Branches
+
+The historical branches `develop`, `feature/base-helm-structure`, and `feature/service-template-generator` are preserved for attribution and recovery evidence. Do not base new implementation work on them, merge them wholesale, rewrite them, or delete them without explicit approval.

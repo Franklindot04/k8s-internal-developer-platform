@@ -1,0 +1,24 @@
+name: Repository Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate repository baseline
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify tools
+        run: make verify-tools
+
+      - name: Validate repository
+        run: make validate

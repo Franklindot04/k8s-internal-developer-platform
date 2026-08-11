@@ -1,76 +1,68 @@
 # Kubernetes Internal Developer Platform
 
-This repository contains a Kubernetes‑based Internal Developer Platform (IDP) designed to provide:
+This repository is being rebuilt into a local-first Kubernetes Internal Developer Platform (IDP) portfolio project. The goal is to demonstrate practical platform engineering through reproducible Kubernetes environments, GitOps delivery, a reusable Helm golden path, developer self-service, policy enforcement, observability, CI/CD, and operational documentation.
 
-- Standardized application deployment patterns  
-- GitOps‑driven delivery  
-- Centralized observability  
-- Self‑service workflows for application teams  
-- A fully extensible service template generator with support for  
-  **[language variants](ca://s?q=Explain_language_variants)**,  
-  **[optional components](ca://s?q=Explain_optional_components)**,  
-  **[Helm integration](ca://s?q=Explain_Helm_integration)**,  
-  **[CI scaffolding](ca://s?q=Explain_CI_integration)**,  
-  **[environment overlays](ca://s?q=Explain_environment_overlays)**,  
-  **[metadata enrichment](ca://s?q=Explain_metadata_enrichment)**,  
-  **[analytics](ca://s?q=Explain_analytics_hooks)** and  
-  **[service creation telemetry](ca://s?q=Explain_service_creation_telemetry)**.
+## Current Status
 
-All six issues from the April 20th milestone have been reviewed and closed as of May 2026.
+The project is in Stage 1: recovery and engineering baseline. The repository has been audited after recovery from historical branches, and implementation is being rebuilt from a clean, reviewable foundation.
 
----
+Runtime platform components are not implemented yet. Kind, Argo CD, Helm golden-path charts, Kyverno policies, observability, service generation, and deployment workflows are target capabilities for later stages.
 
-## High‑Level Components
+## Target Capabilities
 
-- `infra/` – Cluster, GitOps and base infrastructure definitions  
-- `platform/` – Helm charts, shared platform components and deployment standards  
-- `services/` – Example application services deployed onto the platform  
-- `tools/service-template/` – The service generator engine (Stage 5 scaffolding complete)  
-- `docs/` – Architecture, runbooks and operational documentation  
+- Reproducible local Kubernetes platform using Kind
+- GitOps reconciliation with Argo CD
+- Production-quality reusable application packaging with Helm
+- Developer self-service service generation
+- GitHub Actions validation and later CI/supply-chain workflows
+- Kubernetes-native policy enforcement with Kyverno
+- Metrics, logs, tracing, alerts, and SRE operating guidance
+- Clear architecture, ADRs, recovery records, and roadmap documentation
 
----
+## Architecture Summary
 
-## Generator Capabilities (Current Status)
+The intended platform separates infrastructure bootstrap, platform capabilities, reference workloads, developer tooling, and documentation. The local demonstration path will be runnable without mandatory cloud spend, while the architecture leaves room for a future optional cloud reference deployment.
 
-The service generator currently includes scaffolding for:
+See [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) for the target architecture and current repository state.
 
-- **[Template packs](ca://s?q=Explain_template_packs)**  
-- Real variable rendering (Stage 6 in progress)  
-- Language variant support  
-- Optional component toggles  
-- Helm chart integration  
-- CI workflow generation  
-- Environment overlays  
-- Documentation generation  
-- Platform compatibility checks  
-- Template pack testing  
-- Metadata enrichment  
-- Analytics hooks  
-- Publishing workflow  
-- Service creation telemetry  
+## Repository Structure
 
-These features form the structural foundation.  
-Functional implementation continues under Stage 6.
+- `infra/` - future cluster bootstrap, GitOps root configuration, environment infrastructure, and platform policy bootstrap.
+- `platform/` - future reusable platform capabilities, Helm golden path, add-ons, and shared contracts.
+- `services/` - future reference workloads and generated golden-path demonstration services.
+- `tools/` - future developer-facing tooling, service generation, and repository support tooling.
+- `docs/` - architecture, ADRs, recovery decisions, roadmap, and later developer/operator documentation.
+- `.github/` - repository validation workflow and future repository automation.
+- `scripts/` - Stage 1 repository validation scripts.
 
----
+The detailed directory contract is documented in [docs/repository/structure-contract.md](docs/repository/structure-contract.md).
 
-## Team Roles
+## Roadmap
 
-- Platform / DevOps / SRE Lead: **Ajero Franklin**  
-- Application Platform Engineer: **Mordecai Nathan**  
-- Application Platform Engineer: **Escar Maris**  
+The implementation roadmap is dependency-ordered. Stage 1 establishes repository truth, decisions, validation, and contribution expectations before runtime platform work begins.
 
----
+See [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md).
 
-## Project Status
+## Validation
 
-- Active development resumed: **09 May 2026**  
-- All six issues from the April 20th session have been closed  
-- Last major structural milestone: *Service creation telemetry scaffolding*  
-- Stage 6 (functional implementation) is now underway  
-- Current focus: Implementing real variable rendering  
+Stage 1 introduces a small validation baseline:
 
-_Last updated: 29 May 2026 by Franklin_ 
-_added code_of_conduct.md and contributing.md june 9
-_Last updated: 23 june 2026 by Escar_ 
-_last update: 12 june 2026 by Franklin_
+```bash
+make help
+make verify-tools
+make validate
+```
+
+The validation currently checks repository structure, Markdown hygiene and internal links, YAML syntax for files that exist, shell syntax, and GitHub Actions workflow YAML. It does not create a Kubernetes cluster, deploy workloads, publish artifacts, or require cloud credentials.
+
+## Contributing
+
+Contributions use short-lived branches and pull requests into `main`. Historical branches remain preserved for attribution and recovery evidence; they should not be used directly as the base for new implementation work.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Historical Recovery
+
+The forensic audit concluded that historical branches contain useful design concepts but should not be merged wholesale. Future work will deliberately recover or reimplement approved concepts while preserving contributor attribution.
+
+See [docs/recovery/historical-recovery.md](docs/recovery/historical-recovery.md).
