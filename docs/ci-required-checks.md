@@ -31,10 +31,9 @@ Current required `main` checks:
 - `Validate repository baseline`
 - `Kind lifecycle validation`
 - `Argo CD reconciliation validation`
-
-Future eligible check after governance proof:
-
 - `Helm chart and GitOps validation`
+
+The Helm final gate was promoted after both governance paths were proven: relevant platform changes execute the appropriate runtime validation before final-gate success, and unrelated documentation changes intentionally skip expensive runtime validation while final gates still report success.
 
 ## Workflow Skip Instructions
 
