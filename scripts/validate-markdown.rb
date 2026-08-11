@@ -8,7 +8,7 @@ files.each do |path|
   content = File.read(path)
   content.each_line.with_index(1) do |line, number|
     failures << "#{path}:#{number}: trailing whitespace" if line.match?(/[ \t]\n\z/)
-    failures << "#{path}:#{number}: internal Codex link is not public documentation" if line.include?('ca://')
+    failures << "#{path}:#{number}: internal application link is not public documentation" if line.include?('ca://')
   end
 
   content.scan(/\[[^\]]+\]\(([^)]+)\)/).flatten.each do |target|

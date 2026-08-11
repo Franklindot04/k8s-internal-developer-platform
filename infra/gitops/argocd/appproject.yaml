@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-bootstrap
+  namespace: argocd
+spec:
+  description: Stage 3 platform bootstrap reconciliation boundary.
+  sourceRepos:
+    - https://github.com/Franklindot04/k8s-internal-developer-platform.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: platform-system
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+  orphanedResources:
+    warn: true

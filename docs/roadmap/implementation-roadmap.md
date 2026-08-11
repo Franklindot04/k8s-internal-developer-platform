@@ -30,13 +30,13 @@ Definition of done: a maintainer can create, validate, and remove the local clus
 
 Objective: Add GitOps reconciliation for platform and application configuration.
 
-Principal capabilities: Argo CD installation, root application structure, repository layout, reconciliation validation, drift visibility, and rollback guidance.
+Principal capabilities: Argo CD installation, bootstrap application structure, repository layout, reconciliation validation, drift visibility, safe removal, and reinstall proof.
 
 Dependencies: working local Kubernetes platform.
 
-Meaningful validation/evidence: Argo CD is installed locally, root applications sync successfully, and drift can be detected and corrected.
+Meaningful validation/evidence: Argo CD is installed locally from a pinned and checksum-verified manifest, bootstrap state syncs successfully, drift is corrected, managed resources are recreated, removal is scoped, and reinstall/rebootstrap succeeds.
 
-Definition of done: Git changes are the documented source of truth for platform state.
+Definition of done: Git changes are the documented source of truth for Stage 3 platform bootstrap state.
 
 ## Stage 4: Production-Quality Golden-Path Helm Chart
 
