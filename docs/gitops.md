@@ -4,6 +4,8 @@ Stage 3 establishes the local GitOps control plane for the Kubernetes Internal D
 
 Stage 3 does not implement the golden-path Helm chart, Kyverno, observability, service generation, environment promotion, application delivery pipelines, or cloud Kubernetes infrastructure.
 
+Stage 4 adds a separate golden-path AppProject and Application for the demo workload. The Stage 3 `platform-bootstrap` Application remains intentionally small and independent.
+
 ## Version and Installation Boundary
 
 The authoritative Argo CD version contract is `infra/gitops/argocd/versions.env`.

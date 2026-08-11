@@ -1,0 +1,12 @@
+apiVersion: v2
+name: golden-path
+description: Opinionated reusable Kubernetes workload chart for the platform golden path.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.34.0-0 <=1.36.99-0"
+keywords:
+  - kubernetes
+  - platform
+  - workload
+  - golden-path

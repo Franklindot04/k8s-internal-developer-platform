@@ -1,0 +1,17 @@
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "golden-path.fullname" . }}
+  labels:
+    {{- include "golden-path.labels" . | nindent 4 }}
+spec:
+  {{- if hasKey .Values.pdb "minAvailable" }}
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "golden-path.selectorLabels" . | nindent 6 }}
+{{- end }}

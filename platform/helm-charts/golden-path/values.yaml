@@ -1,0 +1,116 @@
+replicaCount: 1
+revisionHistoryLimit: 5
+terminationGracePeriodSeconds: 30
+
+image:
+  repository: registry.k8s.io/e2e-test-images/agnhost
+  tag: "2.53"
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+command: []
+args: []
+
+containerPort:
+  name: http
+  port: 8080
+
+serviceAccount:
+  create: true
+  name: ""
+  automountServiceAccountToken: false
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+
+probes:
+  startup:
+    enabled: true
+    path: /healthz
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 12
+    timeoutSeconds: 2
+  readiness:
+    enabled: true
+    path: /healthz
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 3
+    timeoutSeconds: 2
+  liveness:
+    enabled: true
+    path: /healthz
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 2
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+config:
+  create: false
+  data: {}
+
+existingSecret:
+  envFrom: []
+  env: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+
+pdb:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+  ingress:
+    sameNamespace: true
+  egress:
+    allowDns: true
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+extraVolumes: []
+extraVolumeMounts: []

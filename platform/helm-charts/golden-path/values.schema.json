@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "nameOverride": { "type": "string", "maxLength": 63 },
+    "fullnameOverride": { "type": "string", "maxLength": 63 },
+    "replicaCount": { "type": "integer", "minimum": 1, "maximum": 50 },
+    "revisionHistoryLimit": { "type": "integer", "minimum": 1, "maximum": 20 },
+    "terminationGracePeriodSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pullPolicy"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+([._/-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*$"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^$|^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$",
+          "not": { "const": "latest" }
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^(|sha256:[a-f0-9]{64})$"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["tag"],
+          "properties": {
+            "tag": {
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$",
+              "not": { "const": "latest" }
+            }
+          }
+        },
+        {
+          "required": ["digest"],
+          "properties": {
+            "digest": { "pattern": "^sha256:[a-f0-9]{64}$" }
+          }
+        }
+      ]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "$ref": "#/definitions/kubernetesName" }
+        }
+      }
+    },
+    "command": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "containerPort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "port"],
+      "properties": {
+        "name": { "$ref": "#/definitions/portName" },
+        "port": { "type": "integer", "minimum": 1024, "maximum": 65535 }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create", "automountServiceAccountToken"],
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string", "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
+        "automountServiceAccountToken": { "type": "boolean" },
+        "annotations": { "$ref": "#/definitions/stringMap" }
+      }
+    },
+    "podAnnotations": { "$ref": "#/definitions/stringMap" },
+    "podLabels": { "$ref": "#/definitions/stringMap" },
+    "podSecurityContext": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "runAsNonRoot": { "const": true },
+        "seccompProfile": {
+          "type": "object",
+          "properties": {
+            "type": { "const": "RuntimeDefault" }
+          },
+          "required": ["type"]
+        }
+      },
+      "required": ["runAsNonRoot", "seccompProfile"]
+    },
+    "securityContext": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "allowPrivilegeEscalation": { "const": false },
+        "readOnlyRootFilesystem": { "const": true },
+        "runAsNonRoot": { "const": true },
+        "runAsUser": { "type": "integer", "minimum": 1 },
+        "runAsGroup": { "type": "integer", "minimum": 1 },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "drop": {
+              "type": "array",
+              "contains": { "const": "ALL" }
+            }
+          },
+          "required": ["drop"]
+        }
+      },
+      "required": ["allowPrivilegeEscalation", "readOnlyRootFilesystem", "runAsNonRoot", "capabilities"]
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "port"],
+      "properties": {
+        "type": { "type": "string", "enum": ["ClusterIP"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "probes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startup", "readiness", "liveness"],
+      "properties": {
+        "startup": { "$ref": "#/definitions/httpProbe" },
+        "readiness": { "$ref": "#/definitions/httpProbe" },
+        "liveness": { "$ref": "#/definitions/httpProbe" }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": { "$ref": "#/definitions/resourcePair" },
+        "limits": { "$ref": "#/definitions/resourcePair" }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create", "data"],
+      "properties": {
+        "create": { "type": "boolean" },
+        "data": { "$ref": "#/definitions/stringMap" }
+      }
+    },
+    "existingSecret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["envFrom", "env"],
+      "properties": {
+        "envFrom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "$ref": "#/definitions/kubernetesName" },
+              "optional": { "type": "boolean" }
+            }
+          }
+        },
+        "env": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "secretName", "key"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$" },
+              "secretName": { "$ref": "#/definitions/kubernetesName" },
+              "key": { "type": "string", "minLength": 1 },
+              "optional": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "minReplicas", "maxReplicas", "targetCPUUtilizationPercentage"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "maxReplicas": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "minReplicas": { "const": 2 } } },
+          "then": { "properties": { "maxReplicas": { "minimum": 2 } } }
+        }
+      ]
+    },
+    "pdb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minAvailable": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "pattern": "^[1-9][0-9]?%$" }
+          ]
+        },
+        "maxUnavailable": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "pattern": "^[1-9][0-9]?%$" }
+          ]
+        }
+      },
+      "not": { "required": ["minAvailable", "maxUnavailable"] },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          },
+          "then": {
+            "anyOf": [
+              { "required": ["minAvailable"] },
+              { "required": ["maxUnavailable"] }
+            ]
+          }
+        }
+      ]
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "ingress", "egress"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ingress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sameNamespace"],
+          "properties": { "sameNamespace": { "type": "boolean" } }
+        },
+        "egress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowDns"],
+          "properties": { "allowDns": { "type": "boolean" } }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "className", "annotations", "hosts", "tls"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "$ref": "#/definitions/stringMap" },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["host", "paths"],
+            "properties": {
+              "host": { "type": "string", "pattern": "^[a-z0-9]([-.a-z0-9]*[a-z0-9])?$" },
+              "paths": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "pathType"],
+                  "properties": {
+                    "path": { "type": "string", "pattern": "^/" },
+                    "pathType": { "type": "string", "enum": ["Exact", "Prefix", "ImplementationSpecific"] }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["hosts", "secretName"],
+            "properties": {
+              "hosts": { "type": "array", "items": { "type": "string" } },
+              "secretName": { "$ref": "#/definitions/kubernetesName" }
+            }
+          }
+        }
+      }
+    },
+    "nodeSelector": { "$ref": "#/definitions/stringMap" },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" },
+    "topologySpreadConstraints": { "type": "array" },
+    "extraVolumes": { "type": "array" },
+    "extraVolumeMounts": { "type": "array" }
+  },
+  "definitions": {
+    "kubernetesName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "portName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "maxLength": 15
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "resourcePair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": { "type": "string", "pattern": "^[0-9]+m?$" },
+        "memory": { "type": "string", "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki|E|P|T|G|M|K)?$" }
+      }
+    },
+    "httpProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "path", "initialDelaySeconds", "periodSeconds", "failureThreshold", "timeoutSeconds"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "path": { "type": "string", "pattern": "^/" },
+        "initialDelaySeconds": { "type": "integer", "minimum": 0, "maximum": 300 },
+        "periodSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+        "failureThreshold": { "type": "integer", "minimum": 1, "maximum": 60 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 60 }
+      }
+    }
+  }
+}

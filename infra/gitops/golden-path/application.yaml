@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: golden-path-demo
+  namespace: argocd
+spec:
+  project: golden-path
+  source:
+    repoURL: https://github.com/Franklindot04/k8s-internal-developer-platform.git
+    targetRevision: main
+    path: platform/helm-charts/golden-path
+    helm:
+      releaseName: golden-path-demo
+      valueFiles:
+        - tests/values/runtime-kind.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: golden-path-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true

@@ -1,0 +1,89 @@
+name: Golden Path Helm
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/golden-path-helm.yml
+      - infra/gitops/golden-path/**
+      - infra/gitops/argocd/**
+      - infra/kubernetes/kind/**
+      - platform/helm-charts/**
+      - scripts/ci/**
+      - scripts/gitops/**
+      - scripts/golden-path/**
+      - scripts/helm/**
+      - scripts/kubernetes/**
+      - Makefile
+      - docs/golden-path.md
+      - docs/adr/0008-use-opinionated-helm-golden-path.md
+      - docs/recovery/helm-design-recovery.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  helm-chart-and-gitops:
+    name: Helm chart and GitOps validation
+    runs-on: ubuntu-24.04
+    env:
+      GOLDEN_PATH_TEST_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.GOLDEN_PATH_TEST_REVISION }}
+
+      - name: Install pinned Helm validation tools
+        run: bash scripts/ci/install-helm-tools.sh
+
+      - name: Validate golden-path chart statically
+        run: make helm-validate
+
+      - name: Install pinned Kubernetes tools
+        run: bash scripts/ci/install-local-kubernetes-tools.sh
+
+      - name: Create local Kubernetes cluster
+        run: make cluster-create
+
+      - name: Server-side dry-run runtime chart render
+        run: make helm-server-dry-run
+
+      - name: Install Argo CD control plane
+        run: make gitops-install
+
+      - name: Bootstrap platform GitOps at tested commit
+        env:
+          GITOPS_TARGET_REVISION: ${{ env.GOLDEN_PATH_TEST_REVISION }}
+        run: make gitops-bootstrap
+
+      - name: Bootstrap golden-path app through Argo CD
+        env:
+          GOLDEN_PATH_TARGET_REVISION: ${{ env.GOLDEN_PATH_TEST_REVISION }}
+        run: make golden-path-bootstrap
+
+      - name: Validate golden-path runtime
+        run: make golden-path-validate
+
+      - name: Delete golden-path runtime state
+        run: make golden-path-delete
+
+      - name: Rebootstrap golden-path app through Argo CD
+        env:
+          GOLDEN_PATH_TARGET_REVISION: ${{ env.GOLDEN_PATH_TEST_REVISION }}
+        run: make golden-path-bootstrap
+
+      - name: Validate re-created golden-path runtime
+        run: make golden-path-validate
+
+      - name: Clean up golden-path runtime
+        if: always()
+        run: make golden-path-delete
+
+      - name: Clean up GitOps state
+        if: always()
+        run: make gitops-delete
+
+      - name: Delete local Kubernetes cluster
+        if: always()
+        run: make cluster-delete

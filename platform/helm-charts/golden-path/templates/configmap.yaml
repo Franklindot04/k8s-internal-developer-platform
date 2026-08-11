@@ -1,0 +1,12 @@
+{{- if and .Values.config.create .Values.config.data }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "golden-path.fullname" . }}-config
+  labels:
+    {{- include "golden-path.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.config.data }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}

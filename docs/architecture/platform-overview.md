@@ -31,7 +31,7 @@ Application teams remain responsible for service behavior, application tests, se
 
 ## Current Repository State
 
-The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, and a reproducible Argo CD GitOps control plane for local reconciliation. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, and a minimal Git-managed platform bootstrap resource. It does not yet contain a Helm golden-path chart, Kyverno policy set, observability stack, service generator, environment promotion model, or application deployment workflow.
+The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, a reproducible Argo CD GitOps control plane for local reconciliation, and a reusable Helm golden-path chart for HTTP workloads. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, minimal Git-managed platform bootstrap state, golden-path chart validation, and a GitOps-deployed demo workload. It does not yet contain a Kyverno policy set, observability stack, service generator, environment promotion model, or application delivery workflow.
 
 ## Target Architecture
 
@@ -52,21 +52,21 @@ The platform owner maintains cluster bootstrap, GitOps structure, Helm standards
 
 ## Control Plane Concepts
 
-Kind provides the local Kubernetes cluster. Argo CD reconciles Stage 3 platform bootstrap state from Git into the cluster. Kyverno will enforce Kubernetes-native policies in a later stage. GitHub Actions validates repository changes before merge.
+Kind provides the local Kubernetes cluster. Argo CD reconciles platform bootstrap state and the golden-path demo workload from Git into the cluster. Helm defines the reusable application packaging contract. Kyverno will enforce Kubernetes-native policies in a later stage. GitHub Actions validates repository changes before merge.
 
-Kind is implemented as the Stage 2 local Kubernetes foundation. Argo CD is implemented as the Stage 3 GitOps control plane using a pinned non-HA upstream manifest for local development. Kyverno and later platform components remain planned future-stage work.
+Kind is implemented as the Stage 2 local Kubernetes foundation. Argo CD is implemented as the Stage 3 GitOps control plane using a pinned non-HA upstream manifest for local development. Helm golden-path packaging is implemented in Stage 4. Kyverno and later platform components remain planned future-stage work.
 
 ## Workload Plane Concepts
 
-Workloads will be deployed through standardized Kubernetes manifests rendered by Helm. Expected workload standards include labels, health probes, resource requests and limits, security contexts, service accounts, disruption handling, network policy, and telemetry integration.
+Workloads are deployed through standardized Kubernetes manifests rendered by the golden-path Helm chart. Implemented workload standards include stable labels and selectors, HTTP health probes, resource requests and limits, restricted pod and container security contexts, service accounts, disruption handling, optional network policy, optional ingress, optional autoscaling, and scheduling controls. Telemetry integration remains later-stage work.
 
 ## GitOps Operating Model
 
-Git is the source of truth for Stage 3 platform bootstrap state. Platform configuration is reviewed through pull requests, merged into `main`, and reconciled into the local cluster by Argo CD. CI tests the exact commit under review by temporarily rendering the Argo CD Application target revision to the immutable commit SHA. Promotion between environments remains a later-stage concern and will be modeled through explicit Git changes rather than manual cluster mutation.
+Git is the source of truth for platform bootstrap state and the Stage 4 golden-path demo application. Platform configuration is reviewed through pull requests, merged into `main`, and reconciled into the local cluster by Argo CD. CI tests the exact commit under review by temporarily rendering Argo CD Application target revisions to the immutable commit SHA. Promotion between environments remains a later-stage concern and will be modeled through explicit Git changes rather than manual cluster mutation.
 
 ## Developer Golden Path
 
-The future golden path will guide a developer from service creation through local validation, CI checks, GitOps registration, deployment, and observability. Stage 1 defines this direction only; the generator and deployment flow are later-stage work.
+The golden-path Helm chart now provides the reusable workload contract that later developer self-service will target. The future generator will guide a developer from service creation through local validation, CI checks, GitOps registration, deployment, and observability. Generated services and the complete onboarding flow remain later-stage work.
 
 ## Environment Model
 
@@ -76,7 +76,7 @@ The planned environment model includes local platform bootstrap plus development
 
 Security will be layered across repository validation, branch review, container and dependency checks, Kubernetes RBAC, Pod Security Standards, namespace isolation, network policy, secret handling, and Kyverno policy enforcement.
 
-Current controls include repository validation, protected pull-request workflow, pinned local Kubernetes tooling, pinned and checksum-verified Argo CD installation, and a restricted Stage 3 AppProject. Kyverno policy enforcement remains planned future-stage work.
+Current controls include repository validation, protected pull-request workflow, pinned local Kubernetes tooling, pinned Helm validation tooling, pinned and checksum-verified Argo CD installation, restricted AppProjects, digest-pinned runtime images, schema validation, and secure workload defaults. Kyverno policy enforcement remains planned future-stage work.
 
 ## Observability Model
 

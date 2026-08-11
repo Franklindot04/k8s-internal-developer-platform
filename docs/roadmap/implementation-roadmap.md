@@ -44,11 +44,11 @@ Objective: Create the reusable application deployment contract.
 
 Principal capabilities: chart metadata, values schema, Deployment, Service, ServiceAccount, probes, resources, HPA, PDB, NetworkPolicy, ingress or Gateway support, config, secrets integration, security contexts, scheduling controls, helpers, and tests.
 
-Dependencies: Stage 1 recovery policy and Stage 2 validation environment.
+Dependencies: Stage 1 recovery policy, Stage 2 validation environment, and Stage 3 GitOps control plane.
 
-Meaningful validation/evidence: `helm lint`, rendered manifests, schema validation, selector checks, policy compatibility, and chart tests.
+Meaningful validation/evidence: strict Helm linting, rendered manifests, invalid values rejection, kubeconform validation, selector checks, server-side dry-run, Argo CD deployment, ready pods, Service endpoints, HTTP health response, safe deletion, and redeploy proof.
 
-Definition of done: the chart can deploy a reference service safely and predictably.
+Definition of done: the chart can deploy a reference service safely and predictably through the GitOps control plane.
 
 ## Stage 5: Functional Developer Self-Service Generator
 

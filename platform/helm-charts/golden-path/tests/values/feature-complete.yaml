@@ -1,0 +1,57 @@
+replicaCount: 2
+
+image:
+  repository: registry.k8s.io/e2e-test-images/agnhost
+  tag: "2.53"
+  digest: sha256:99c6b4bb4a1e1df3f0b3752168c89358794d02258ebebc26bf21c29399011a85
+
+command:
+  - /agnhost
+args:
+  - netexec
+  - --http-port=8080
+
+config:
+  create: true
+  data:
+    FEATURE_PROFILE: enabled
+
+existingSecret:
+  envFrom:
+    - name: externally-managed-application-secret
+      optional: true
+  env:
+    - name: DEMO_SECRET_VALUE
+      secretName: externally-managed-application-secret
+      key: demo
+      optional: true
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  maxUnavailable: 1
+
+networkPolicy:
+  enabled: true
+  ingress:
+    sameNamespace: true
+  egress:
+    allowDns: true
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: golden-path.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - golden-path.local
+      secretName: externally-managed-tls

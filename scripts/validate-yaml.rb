@@ -3,7 +3,9 @@
 
 require 'yaml'
 
-files = Dir.glob('**/*.{yml,yaml}', File::FNM_DOTMATCH).reject { |path| path.start_with?('.git/') }
+files = Dir.glob('**/*.{yml,yaml}', File::FNM_DOTMATCH).reject do |path|
+  path.start_with?('.git/') || path.start_with?('platform/helm-charts/golden-path/templates/')
+end
 
 files.each do |path|
   content = File.read(path)
