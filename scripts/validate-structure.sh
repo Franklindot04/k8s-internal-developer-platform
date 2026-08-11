@@ -16,13 +16,19 @@ required_paths=(
   docs/recovery/historical-recovery.md
   docs/roadmap/implementation-roadmap.md
   docs/repository/structure-contract.md
+  docs/local-kubernetes.md
+  infra/kubernetes/kind/cluster.yaml
+  infra/kubernetes/kind/versions.env
   .github/workflows/validate.yml
+  .github/workflows/local-kubernetes.yml
   scripts/verify-tools.sh
   scripts/validate.sh
   scripts/validate-structure.sh
   scripts/validate-markdown.rb
   scripts/validate-yaml.rb
   scripts/validate-shell.sh
+  scripts/kubernetes/cluster.sh
+  scripts/ci/install-local-kubernetes-tools.sh
 )
 
 missing=0

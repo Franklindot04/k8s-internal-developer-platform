@@ -10,19 +10,27 @@ This project uses a branch-based workflow. Contributors should not push directly
 
 Create a new branch from `main` for each focused change.
 
+Branch names should describe the engineering domain, subsystem, and change intent. They should not encode the implementation tool, generation mechanism, workstation identity, vendor name, or unrelated authorship metadata.
+
 Recommended branch naming:
 
-* `feature/<short-description>`
-* `fix/<short-description>`
+* `platform/<short-description>`
+* `security/<short-description>`
+* `observability/<short-description>`
+* `reliability/<short-description>`
 * `docs/<short-description>`
-* `chore/<short-description>`
+* `fix/<short-description>`
 
 Examples:
 
-* `feature/variable-rendering`
-* `fix/helm-values-overlay`
+* `platform/local-kubernetes-foundation`
+* `platform/gitops-control-plane`
+* `platform/golden-path-chart`
+* `security/policy-foundation`
+* `observability/platform-telemetry`
+* `reliability/slo-foundation`
 * `docs/add-runbook`
-* `chore/update-ci-checks`
+* `fix/helm-values-overlay`
 
 ## Pull Requests
 

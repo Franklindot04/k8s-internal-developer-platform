@@ -31,7 +31,7 @@ Application teams remain responsible for service behavior, application tests, se
 
 ## Current Repository State
 
-The current repository is in the recovery and engineering baseline stage. It contains documentation, governance files, validation scripts, and directory contracts. It does not yet contain a working Kubernetes cluster, Argo CD installation, Helm golden-path chart, Kyverno policy set, observability stack, or service generator.
+The current repository includes the recovery and engineering baseline plus a reproducible local Kubernetes foundation using Kind. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, and local cluster lifecycle commands. It does not yet contain an Argo CD installation, Helm golden-path chart, Kyverno policy set, observability stack, service generator, or application deployment workflow.
 
 ## Target Architecture
 
@@ -54,7 +54,7 @@ The platform owner maintains cluster bootstrap, GitOps structure, Helm standards
 
 Kind will provide the local Kubernetes cluster. Argo CD will reconcile desired state from Git into the cluster. Kyverno will enforce Kubernetes-native policies. GitHub Actions will validate repository changes before merge.
 
-These components are approved architectural decisions, not completed implementation in Stage 1.
+Kind is implemented as the Stage 2 local Kubernetes foundation. Argo CD, Kyverno, and the later platform components remain planned future-stage work.
 
 ## Workload Plane Concepts
 

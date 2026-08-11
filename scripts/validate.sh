@@ -17,7 +17,7 @@ run "Validate YAML" ruby scripts/validate-yaml.rb
 run "Validate shell syntax" bash scripts/validate-shell.sh
 
 if command -v shellcheck >/dev/null 2>&1; then
-  run "Run ShellCheck" shellcheck scripts/*.sh
+  run "Run ShellCheck" shellcheck scripts/*.sh scripts/kubernetes/*.sh scripts/ci/*.sh
 else
   printf '\n==> ShellCheck not installed; optional local check not executed\n'
 fi
@@ -28,4 +28,4 @@ else
   printf '\n==> actionlint not installed; optional local check not executed\n'
 fi
 
-printf '\nAll required Stage 1 validation checks passed.\n'
+printf '\nAll required repository validation checks passed.\n'
