@@ -23,6 +23,9 @@ matches_any() {
 
   for pattern in "$@"; do
     case "$path" in
+      # Intentionally unquoted: repository-owned patterns are dynamic globs.
+      # Quoting would make each pattern literal and break scope classification.
+      # shellcheck disable=SC2254
       $pattern)
         return 0
         ;;
