@@ -1,0 +1,36 @@
+resourceProfiles:
+  small:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+  medium:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  large:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+availabilityProfiles:
+  single:
+    replicaCount: 1
+    autoscaling:
+      enabled: false
+    pdb:
+      enabled: false
+  standard:
+    replicaCount: 2
+    autoscaling:
+      enabled: false
+    pdb:
+      enabled: true
+      minAvailable: 1

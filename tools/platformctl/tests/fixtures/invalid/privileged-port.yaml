@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: privileged-port-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/privileged-port-api
+    digest: sha256:6666666666666666666666666666666666666666666666666666666666666666
+  runtime:
+    port: 1023
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single
