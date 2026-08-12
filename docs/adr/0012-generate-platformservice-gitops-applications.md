@@ -84,6 +84,8 @@ There are three proof levels. Stage 5B tests prove the selected values artifact 
 
 The runtime workflow gates on Argo acceptance, repository/chart/values resolution, successful synchronization, expected resource creation, and representative live Deployment fields matching compiler-derived values. It records Application health only as diagnostic context. Requiring workload health here would couple the GitOps compiler proof to container runtime behavior, which is covered by the Stage 4 workload contract and later complete golden-path proof.
 
+The workflow checks Argo CD control-plane readiness directly instead of invoking the Stage 3 full-state validator. That validator correctly requires the `platform-bootstrap` AppProject and Application after bootstrap, while this isolated Stage 5C proof only needs ready Argo CRDs, controller, server, and repo-server before applying the `self-service` AppProject and test Application.
+
 ## Alternatives Considered
 
 - Reuse the Stage 4 `golden-path` AppProject: rejected because generated self-service workloads need a distinct namespace boundary and should not broaden the demo project.

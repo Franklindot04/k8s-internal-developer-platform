@@ -238,6 +238,17 @@ class PlatformServiceGitOpsTests(unittest.TestCase):
         self.assertNotIn('health_status" = "Healthy"', runtime_script)
         self.assertNotIn("readyReplicas", runtime_script)
 
+    def test_runtime_script_uses_control_plane_readiness_without_platform_bootstrap(self) -> None:
+        runtime_script = RUNTIME_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("validate_argocd_control_plane", runtime_script)
+        self.assertIn("crd/applications.argoproj.io", runtime_script)
+        self.assertIn("crd/appprojects.argoproj.io", runtime_script)
+        self.assertIn("argocd-repo-server", runtime_script)
+        self.assertIn("argocd-application-controller", runtime_script)
+        self.assertNotIn('scripts/gitops/argocd.sh" validate', runtime_script)
+        self.assertNotIn("gitops/argocd.sh validate", runtime_script)
+        self.assertNotIn("platform-bootstrap", runtime_script)
+
 
 def _destination_namespace_allowed(spec: dict[str, object], namespace: str) -> bool:
     destinations = spec.get("destinations", [])

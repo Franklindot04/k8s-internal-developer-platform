@@ -43,6 +43,24 @@ require_cluster() {
   kubectl get --raw='/readyz' --context "$KIND_CONTEXT" >/dev/null
 }
 
+validate_argocd_control_plane() {
+  require_cluster
+
+  kubectl get namespace "$ARGOCD_NAMESPACE" --context "$KIND_CONTEXT" >/dev/null
+  kubectl wait --context "$KIND_CONTEXT" --for=condition=Established crd/applications.argoproj.io --timeout="$WAIT_TIMEOUT" >/dev/null
+  kubectl wait --context "$KIND_CONTEXT" --for=condition=Established crd/appprojects.argoproj.io --timeout="$WAIT_TIMEOUT" >/dev/null
+
+  for deployment in argocd-applicationset-controller argocd-dex-server argocd-notifications-controller argocd-redis argocd-repo-server argocd-server; do
+    kubectl -n "$ARGOCD_NAMESPACE" get "deployment/$deployment" --context "$KIND_CONTEXT" >/dev/null
+    kubectl -n "$ARGOCD_NAMESPACE" rollout status "deployment/$deployment" --context "$KIND_CONTEXT" --timeout="$WAIT_TIMEOUT" >/dev/null
+  done
+
+  kubectl -n "$ARGOCD_NAMESPACE" get statefulset/argocd-application-controller --context "$KIND_CONTEXT" >/dev/null
+  kubectl -n "$ARGOCD_NAMESPACE" rollout status statefulset/argocd-application-controller --context "$KIND_CONTEXT" --timeout="$WAIT_TIMEOUT" >/dev/null
+  kubectl -n "$ARGOCD_NAMESPACE" wait --for=condition=Ready pods --all --context "$KIND_CONTEXT" --timeout="$WAIT_TIMEOUT" >/dev/null
+  info "Argo CD control plane is ready for isolated Service GitOps validation."
+}
+
 validate_revision() {
   revision="$1"
   case "$revision" in
@@ -176,8 +194,7 @@ validate_runtime() {
   SERVICE_GITOPS_EFFECTIVE_REVISION="$revision"
   validate_revision "$revision"
   require_command "$PYTHON_BIN"
-  require_cluster
-  bash "$ROOT/scripts/gitops/argocd.sh" validate
+  validate_argocd_control_plane
 
   tmp_dir="$(mktemp -d)"
   trap 'rm -rf "$tmp_dir"' EXIT

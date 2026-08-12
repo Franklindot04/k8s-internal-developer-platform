@@ -279,6 +279,8 @@ The runtime proof uses `tools/platformctl/tests/fixtures/values/minimal-single/e
 
 The `Service GitOps` workflow treats Argo CD Application health as diagnostic for this slice. The acceptance gate is repository/chart/values resolution, successful sync operation, deterministic namespace creation, expected resource application, and representative live fields matching compiler-derived values. Runtime workload health remains owned by the Stage 4 workload contract and later complete developer-path proof.
 
+The Service GitOps runtime requires the Argo CD control plane to be installed and ready, but it does not bootstrap the Stage 3 `platform-bootstrap` Application. Stage 3 bootstrap reconciliation remains its own lifecycle proof; Stage 5C keeps the self-service Application test isolated from unrelated platform desired state.
+
 ## Future Portal Compatibility
 
 A future CLI, API, portal, or service catalog can use the same `PlatformService` contract. User interfaces should sit above the contract rather than redefining it.
