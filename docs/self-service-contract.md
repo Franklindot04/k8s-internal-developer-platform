@@ -1,6 +1,6 @@
 # Developer Self-Service Contract
 
-Stage 5 introduces a developer-owned service intent contract for the Kubernetes Internal Developer Platform. This contract comes before generator implementation, GitOps registration, and any future portal or API. The platform should first agree on what developers are allowed to ask for.
+Stage 5 introduces a developer-owned service intent contract for the Kubernetes Internal Developer Platform. The contract is now validated and can be compiled into deterministic Stage 4-compatible Helm values for review. GitOps registration, repository write behavior, and any future portal or API remain later work.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ developer intent
 -> Argo CD lifecycle
 ```
 
-Stage 5A implements only the versioned contract and validation foundation. It does not generate Helm values, Argo CD Applications, Kubernetes workloads, CI pipelines, or application source code.
+Stage 5A implemented the versioned contract and validation foundation. Stage 5B adds deterministic read-only planning from `PlatformService` intent to golden-path Helm values. It does not generate files in the repository, create Argo CD Applications, Kubernetes workloads, CI pipelines, or application source code.
 
 ## Developer Persona
 
@@ -32,7 +32,7 @@ apiVersion: idp/v1alpha1
 kind: PlatformService
 ```
 
-Generated files in later Stage 5 slices will be derived from this contract. Generated Helm values and generated Argo CD Application files must not become competing sources of truth.
+Generated files in later Stage 5 slices will be derived from this contract. Planned Helm values and future generated Argo CD Application files must not become competing sources of truth.
 
 ## Contract Identity
 
@@ -97,7 +97,7 @@ Tag-only images are not accepted in v1alpha1. `latest` is not accepted. Stage 6 
 
 Required fields:
 
-- `spec.runtime.port`: integer from 1 through 65535.
+- `spec.runtime.port`: application container port from `1024` through `65535`.
 - `spec.runtime.healthPath`: absolute HTTP path beginning with `/`.
 
 The health path must be a path only, not a URL, host, command, or probe script.
@@ -114,7 +114,17 @@ Allowed profiles:
 - `medium`
 - `large`
 
-Concrete CPU and memory mappings will be implemented in a later values-generation slice. Developers do not enter raw CPU or memory in v1alpha1.
+Concrete CPU and memory mappings are platform-owned profile policy, not developer-authored raw resources.
+
+Current demo/default operating profiles:
+
+| Profile | CPU request | Memory request | CPU limit | Memory limit |
+| --- | ---: | ---: | ---: | ---: |
+| `small` | `50m` | `64Mi` | `250m` | `128Mi` |
+| `medium` | `100m` | `128Mi` | `500m` | `256Mi` |
+| `large` | `250m` | `256Mi` | `1000m` | `512Mi` |
+
+These values are intentionally realistic for local Kind validation and ordinary demo workloads. They are not universal production sizing recommendations. Later contract versions may evolve profile semantics through controlled compatibility changes.
 
 ## Availability
 
@@ -127,7 +137,9 @@ Allowed profiles:
 - `single`
 - `standard`
 
-`single` means a single-instance development or simple workload intent. `standard` means redundant workload intent suitable for later mapping to replicas and PodDisruptionBudget settings.
+`single` maps to one replica, PDB disabled, and HPA disabled.
+
+`standard` maps to two replicas, PDB enabled with `minAvailable: 1`, and HPA disabled.
 
 Autoscaling is not exposed in v1alpha1 because the current platform does not install Metrics Server and does not prove HPA operation end to end.
 
@@ -189,7 +201,43 @@ Validation uses safe YAML loading and rejects duplicate mapping keys, multiple Y
 
 ## Stage 4 Relationship
 
-Stage 4 remains the Kubernetes implementation layer. Later Stage 5 slices will map `PlatformService` intent to the golden-path chart values. Developers will not author Deployment, Service, PodDisruptionBudget, securityContext, or Helm template details.
+Stage 4 remains the Kubernetes implementation layer. Stage 5B maps `PlatformService` intent to the existing golden-path chart values. Developers do not author Deployment, Service, PodDisruptionBudget, securityContext, or Helm template details.
+
+Mapped fields:
+
+- `metadata.name` -> Stage 4 `fullnameOverride`
+- `spec.image.repository` and `spec.image.digest` -> Stage 4 structured image fields
+- `spec.runtime.port` -> Stage 4 `containerPort.port`
+- `spec.runtime.healthPath` -> Stage 4 startup, readiness, and liveness HTTP paths
+- `spec.resources.profile` -> platform-owned resource profile policy
+- `spec.availability.profile` -> platform-owned replica/PDB/HPA policy
+- `spec.config` -> Stage 4 non-secret ConfigMap data when present
+- `spec.secrets.envFrom` -> Stage 4 existing Secret `envFrom` references
+
+Intentionally unmapped fields:
+
+- `metadata.owner`
+- `metadata.description`
+
+Stage 4 does not currently expose a narrow, platform-controlled metadata label interface for these fields. They remain useful source intent for later GitOps, catalog, and operational workflows.
+
+The lower bound aligns developer intent with the current hardened golden-path runtime contract. This is a platform contract decision, not a statement that Kubernetes universally forbids lower container ports.
+
+## Read-Only Planning
+
+Preview deterministic values:
+
+```bash
+platformctl service plan services/<service>/service.yaml
+```
+
+`plan` validates the contract, normalizes intent, resolves platform profiles, renders deterministic Helm values, and prints the future output path:
+
+```text
+services/<service>/generated/values.yaml
+```
+
+The command is read-only. It does not create `services/`, service directories, `generated/`, values files, metadata files, temporary repository files, Argo CD Applications, AppProjects, or GitOps registrations.
 
 ## GitOps Relationship
 
@@ -202,7 +250,7 @@ services/<service>/generated/application.yaml
 
 from the handwritten service contract.
 
-The generated Application will initially be a GitOps-ready artifact, not automatically discovered by an app-of-apps mechanism. Stage 5 must not broaden the existing Stage 3 or Stage 4 AppProjects. A future shared service AppProject should be platform-owned, not generated per service.
+The generated Application will initially be a GitOps-ready artifact, not automatically discovered by an app-of-apps mechanism. Stage 5B does not create that Application. Stage 5 must not broaden the existing Stage 3 or Stage 4 AppProjects. A future shared service AppProject should be platform-owned, not generated per service.
 
 The expected namespace convention for later slices is `svc-<service-name>`, subject to implementation validation.
 
@@ -216,4 +264,4 @@ A future CLI, API, portal, or service catalog can use the same `PlatformService`
 
 ## Historical Generator Relationship
 
-The historical `feature/service-template-generator` branch informed the redesign, but it is forensic evidence only. Stage 5A does not merge, cherry-pick, copy wholesale, rewrite, or delete that branch.
+The historical `feature/service-template-generator` branch informed the redesign, but it is forensic evidence only. Stage 5 does not merge, cherry-pick, copy wholesale, rewrite, or delete that branch.

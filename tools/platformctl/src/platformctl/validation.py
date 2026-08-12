@@ -173,6 +173,10 @@ def image_repository_errors(repository: str) -> list[str]:
 
 def validate_service_file(path: Path) -> None:
     document = load_service_yaml(path)
+    validate_service_document(document)
+
+
+def validate_service_document(document: dict[str, Any]) -> None:
     schema = load_schema()
     errors = schema_errors(document, schema)
     errors.extend(semantic_errors(document))

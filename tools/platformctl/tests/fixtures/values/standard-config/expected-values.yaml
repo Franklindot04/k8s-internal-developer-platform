@@ -1,0 +1,43 @@
+# Generated from ../service.yaml by the platform self-service generator.
+# Do not edit directly; update the PlatformService specification instead.
+fullnameOverride: config-api
+replicaCount: 2
+image:
+  repository: registry.test/platform/config-api
+  tag: ''
+  digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+containerPort:
+  name: http
+  port: 9000
+service:
+  type: ClusterIP
+probes:
+  startup:
+    enabled: true
+    path: /internal/ready
+  readiness:
+    enabled: true
+    path: /internal/ready
+  liveness:
+    enabled: true
+    path: /internal/ready
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+config:
+  create: true
+  data:
+    APP_MODE: review
+    CACHE_TTL_SECONDS: '30'
+    LOG_LEVEL: info
+autoscaling:
+  enabled: false
+pdb:
+  enabled: true
+  minAvailable: 1
+ingress:
+  enabled: false

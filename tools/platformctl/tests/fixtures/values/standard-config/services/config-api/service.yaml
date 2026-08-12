@@ -1,0 +1,21 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: config-api
+  owner: platform-team
+  description: Service with non-secret configuration.
+spec:
+  image:
+    repository: registry.test/platform/config-api
+    digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+  runtime:
+    port: 9000
+    healthPath: /internal/ready
+  resources:
+    profile: medium
+  availability:
+    profile: standard
+  config:
+    LOG_LEVEL: info
+    APP_MODE: review
+    CACHE_TTL_SECONDS: "30"

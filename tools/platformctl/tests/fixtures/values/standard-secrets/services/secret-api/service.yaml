@@ -1,0 +1,20 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: secret-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/secret-api
+    digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+  runtime:
+    port: 8081
+    healthPath: /healthz
+  resources:
+    profile: medium
+  availability:
+    profile: standard
+  secrets:
+    envFrom:
+      - runtime-settings
+      - database-credentials

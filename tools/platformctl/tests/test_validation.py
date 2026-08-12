@@ -102,6 +102,7 @@ spec:
             "missing-digest.yaml": "digest",
             "multiple-documents.yaml": "exactly one YAML document",
             "overlong-service-name.yaml": "is too long",
+            "privileged-port.yaml": "less than the minimum",
             "raw-secret-value.yaml": "Additional properties are not allowed",
             "reserved-config-prefix.yaml": "reserved PLATFORM_ prefix",
             "scaled-availability.yaml": "is not one of",
@@ -116,6 +117,43 @@ spec:
                 with self.assertRaises(ValidationError) as raised:
                     validate_service_file(INVALID_FIXTURES / fixture_name)
                 self.assertIn(message, "\n".join(raised.exception.messages))
+
+    def test_runtime_port_boundaries(self) -> None:
+        base = """
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: port-boundary-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/port-boundary-api
+    digest: sha256:7878787878787878787878787878787878787878787878787878787878787878
+  runtime:
+    port: PORT
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single
+"""
+        cases = {
+            1023: "less than the minimum",
+            1024: None,
+            65535: None,
+            65536: "greater than the maximum",
+        }
+        for port, expected_error in cases.items():
+            with self.subTest(port=port):
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = Path(tmp) / "service.yaml"
+                    path.write_text(base.replace("PORT", str(port)), encoding="utf-8")
+                    if expected_error is None:
+                        validate_service_file(path)
+                    else:
+                        with self.assertRaises(ValidationError) as raised:
+                            validate_service_file(path)
+                        self.assertIn(expected_error, "\n".join(raised.exception.messages))
 
     def test_empty_document_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

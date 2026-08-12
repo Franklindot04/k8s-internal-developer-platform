@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: large-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/large-api
+    digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
+  runtime:
+    port: 8080
+    healthPath: /status
+  resources:
+    profile: large
+  availability:
+    profile: standard
