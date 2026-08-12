@@ -35,16 +35,19 @@ def main(argv: list[str] | None = None) -> int:
     service_file = Path(args.service_file)
     if args.command == "plan":
         try:
-            output_path, rendered_values = plan_service(service_file)
+            plan = plan_service(service_file)
         except ValidationError as error:
             print(f"[error] {service_file}: plan failed", file=sys.stderr)
             for message in error.messages:
                 print(f"  - {message}", file=sys.stderr)
             return 1
 
-        print(f"[ok] future output: {output_path}")
-        print("---")
-        print(rendered_values, end="")
+        print(f"[ok] future values output: {plan.values_path}")
+        print("--- values.yaml")
+        print(plan.values_yaml, end="")
+        print(f"[ok] future application output: {plan.application_path}")
+        print("--- application.yaml")
+        print(plan.application_yaml, end="")
         return 0
 
     try:

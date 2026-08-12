@@ -1,0 +1,27 @@
+# Generated from ../service.yaml by the platform self-service generator.
+# Do not edit directly; update the PlatformService specification instead.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: large-api
+  namespace: argocd
+spec:
+  project: self-service
+  source:
+    repoURL: https://github.com/Franklindot04/k8s-internal-developer-platform.git
+    targetRevision: main
+    path: platform/helm-charts/golden-path
+    helm:
+      releaseName: large-api
+      valueFiles:
+      - ../../../services/large-api/generated/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: svc-large-api
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - PruneLast=true

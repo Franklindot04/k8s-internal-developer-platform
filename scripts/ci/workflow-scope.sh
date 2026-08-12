@@ -5,11 +5,11 @@ scope="${1:-}"
 path_file="${2:-/dev/stdin}"
 
 usage() {
-  printf 'Usage: %s {kind|gitops|golden-path} [changed-path-file]\n' "$0" >&2
+  printf 'Usage: %s {kind|gitops|golden-path|service-gitops} [changed-path-file]\n' "$0" >&2
 }
 
 case "$scope" in
-  kind | gitops | golden-path)
+  kind | gitops | golden-path | service-gitops)
     ;;
   *)
     usage
@@ -63,6 +63,18 @@ golden_path_patterns=(
   "scripts/golden-path/*"
 )
 
+service_gitops_patterns=(
+  "${golden_path_patterns[@]}"
+  ".github/workflows/service-contract.yml"
+  ".github/workflows/service-gitops.yml"
+  "infra/gitops/self-service/*"
+  "platform/self-service/*"
+  "tools/platformctl/src/platformctl/*"
+  "tools/platformctl/tests/*"
+  "tools/platformctl/tests/fixtures/*"
+  "scripts/service-gitops/*"
+)
+
 relevant=false
 
 while IFS= read -r path; do
@@ -83,6 +95,12 @@ while IFS= read -r path; do
       ;;
     golden-path)
       if matches_any "$path" "${golden_path_patterns[@]}"; then
+        relevant=true
+        break
+      fi
+      ;;
+    service-gitops)
+      if matches_any "$path" "${service_gitops_patterns[@]}"; then
         relevant=true
         break
       fi

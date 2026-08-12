@@ -32,5 +32,8 @@ jobs:
       - name: Run PlatformService contract tests
         run: make service-contract-test
 
+      - name: Run PlatformService GitOps tests
+        run: make service-gitops-test
+
       - name: Validate generated values against golden-path chart
         run: make service-values-helm-validate

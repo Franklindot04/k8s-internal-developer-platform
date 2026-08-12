@@ -1,6 +1,6 @@
 # Developer Self-Service Contract
 
-Stage 5 introduces a developer-owned service intent contract for the Kubernetes Internal Developer Platform. The contract is now validated and can be compiled into deterministic Stage 4-compatible Helm values for review. GitOps registration, repository write behavior, and any future portal or API remain later work.
+Stage 5 introduces a developer-owned service intent contract for the Kubernetes Internal Developer Platform. The contract is now validated and can be compiled into deterministic Stage 4-compatible Helm values and a deterministic Argo CD Application for review. GitOps registration, repository write behavior, and any future portal or API remain later work.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ developer intent
 -> Argo CD lifecycle
 ```
 
-Stage 5A implemented the versioned contract and validation foundation. Stage 5B adds deterministic read-only planning from `PlatformService` intent to golden-path Helm values. It does not generate files in the repository, create Argo CD Applications, Kubernetes workloads, CI pipelines, or application source code.
+Stage 5A implemented the versioned contract and validation foundation. Stage 5B added deterministic read-only planning from `PlatformService` intent to golden-path Helm values. Stage 5C adds deterministic read-only planning for the matching GitOps Application. It does not generate files in the repository, register Applications with Argo CD, create Kubernetes workloads, add application source code, or implement app-of-apps/ApplicationSet discovery.
 
 ## Developer Persona
 
@@ -32,7 +32,7 @@ apiVersion: idp/v1alpha1
 kind: PlatformService
 ```
 
-Generated files in later Stage 5 slices will be derived from this contract. Planned Helm values and future generated Argo CD Application files must not become competing sources of truth.
+Generated files in later Stage 5 slices will be derived from this contract. Planned Helm values and planned Argo CD Application files must not become competing sources of truth.
 
 ## Contract Identity
 
@@ -201,7 +201,7 @@ Validation uses safe YAML loading and rejects duplicate mapping keys, multiple Y
 
 ## Stage 4 Relationship
 
-Stage 4 remains the Kubernetes implementation layer. Stage 5B maps `PlatformService` intent to the existing golden-path chart values. Developers do not author Deployment, Service, PodDisruptionBudget, securityContext, or Helm template details.
+Stage 4 remains the Kubernetes implementation layer. Stage 5 maps `PlatformService` intent to the existing golden-path chart values and a GitOps Application that consumes that chart. Developers do not author Deployment, Service, PodDisruptionBudget, securityContext, Helm template details, or Argo CD Application internals.
 
 Mapped fields:
 
@@ -225,23 +225,24 @@ The lower bound aligns developer intent with the current hardened golden-path ru
 
 ## Read-Only Planning
 
-Preview deterministic values:
+Preview deterministic values and GitOps Application output:
 
 ```bash
 platformctl service plan services/<service>/service.yaml
 ```
 
-`plan` validates the contract, normalizes intent, resolves platform profiles, renders deterministic Helm values, and prints the future output path:
+`plan` validates the contract, normalizes intent, resolves platform profiles, renders deterministic Helm values, renders a deterministic Argo CD Application, and prints the future output paths:
 
 ```text
 services/<service>/generated/values.yaml
+services/<service>/generated/application.yaml
 ```
 
-The command is read-only. It does not create `services/`, service directories, `generated/`, values files, metadata files, temporary repository files, Argo CD Applications, AppProjects, or GitOps registrations.
+The command is read-only. It does not create `services/`, service directories, `generated/`, values files, Application files, metadata files, temporary repository files, Kubernetes resources, AppProjects, or GitOps registrations.
 
 ## GitOps Relationship
 
-This slice does not create Argo CD Applications or modify AppProjects. Later Stage 5 slices are expected to derive:
+Stage 5C derives an Argo CD Application artifact from the handwritten service contract, but still only prints it for review. Later Stage 5 slices are expected to write:
 
 ```text
 services/<service>/generated/values.yaml
@@ -250,13 +251,33 @@ services/<service>/generated/application.yaml
 
 from the handwritten service contract.
 
-The generated Application will initially be a GitOps-ready artifact, not automatically discovered by an app-of-apps mechanism. Stage 5B does not create that Application. Stage 5 must not broaden the existing Stage 3 or Stage 4 AppProjects. A future shared service AppProject should be platform-owned, not generated per service.
+The generated Application is a GitOps-ready artifact, not automatically discovered by an app-of-apps mechanism. Stage 5C does not register that Application with Argo CD, modify the Stage 3 bootstrap Application, create an ApplicationSet, or add app-of-apps discovery.
 
-The expected namespace convention for later slices is `svc-<service-name>`, subject to implementation validation.
+The generated Application uses the platform-owned `self-service` AppProject, not the Argo CD `default` project. It points to the in-repository Stage 4 chart at `platform/helm-charts/golden-path`, uses `targetRevision: main`, sets Helm `releaseName` to the service name, and references exactly one relative values file:
+
+```text
+../../../services/<service>/generated/values.yaml
+```
+
+The destination server is the in-cluster Kubernetes API and the namespace convention is `svc-<service-name>`. The CLI validates the derived namespace length against the Kubernetes 63-character object-name limit.
+
+The `self-service` AppProject permits only the platform repository, the in-cluster destination server, and `svc-*` destination namespaces. It restricts cluster-scoped Namespace creation to names matching `svc-*`. It allows only the namespaced resource kinds rendered by the current representative Stage 5 values output and does not grant raw Secret, Ingress, HPA, NetworkPolicy, wildcard repository, wildcard cluster, `argocd`, or `kube-system` access.
+
+Generated Argo CD Application resources are expected to reside in the Argo CD control-plane namespace because that matches the current declarative Stage 3 and Stage 4 architecture. This is an Application object location, not a workload destination. The AppProject is a workload destination and resource policy boundary; it does not make arbitrary write access to the Argo CD namespace safe. Developers are not granted direct Kubernetes writes to the Argo CD namespace, automatic Application registration, arbitrary project selection, or arbitrary namespace selection. `PlatformService` does not expose `project`, and generated Applications always reference `self-service`.
 
 ## Argo CD Value File Constraint
 
-Future Application generation will use the Stage 4 chart in the same repository and a service-specific generated values file. Value file paths must be validated against the Stage 4 chart and repository model, generated paths must stay inside the repository, and exact Argo CD value-file behavior must receive integration proof before Stage 5 is complete.
+Application generation uses the Stage 4 chart in the same repository and a service-specific generated values file. Value file paths are validated against the Stage 4 chart and repository model, generated paths stay inside the repository, and rendered Applications use relative value-file references suitable for Argo CD.
+
+Stage 5C distinguishes three proof levels:
+
+- Stage 5B compiler golden-output proof for the selected `PlatformService` values fixture
+- Stage 5C deterministic Application, path, and AppProject policy proof for production output shape
+- Stage 5C live Argo CD reconciliation proof, through the non-required `Service GitOps` workflow, that Argo CD can resolve an existing compiler-backed Stage 5B golden values file outside the chart directory, generate manifests, complete synchronization, and apply expected desired-state resources under the `self-service` AppProject
+
+The runtime proof uses `tools/platformctl/tests/fixtures/values/minimal-single/expected-values.yaml`, which is already byte-exactly checked against the Stage 5B values compiler from the matching `PlatformService` fixture. This keeps the live Argo proof connected to the real compiler instead of creating a separate runtime values authority. Production generated-file existence under `services/<service>/generated/` begins in Stage 5D.
+
+The `Service GitOps` workflow treats Argo CD Application health as diagnostic for this slice. The acceptance gate is repository/chart/values resolution, successful sync operation, deterministic namespace creation, expected resource application, and representative live fields matching compiler-derived values. Runtime workload health remains owned by the Stage 4 workload contract and later complete developer-path proof.
 
 ## Future Portal Compatibility
 
