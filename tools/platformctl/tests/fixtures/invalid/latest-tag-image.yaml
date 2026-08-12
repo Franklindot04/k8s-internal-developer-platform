@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: latest-image-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/latest-image-api
+    tag: latest
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

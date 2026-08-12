@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: scaled-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/scaled-api
+    digest: sha256:8888888888888888888888888888888888888888888888888888888888888888
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: scaled

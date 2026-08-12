@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: image-scheme-api
+  owner: platform-team
+spec:
+  image:
+    repository: https://registry.test/platform/image-scheme-api
+    digest: sha256:fafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafa
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

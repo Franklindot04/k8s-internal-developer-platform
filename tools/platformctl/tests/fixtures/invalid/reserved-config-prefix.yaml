@@ -1,0 +1,18 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: reserved-config-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/reserved-config-api
+    digest: sha256:7777777777777777777777777777777777777777777777777777777777777777
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single
+  config:
+    PLATFORM_MODE: internal

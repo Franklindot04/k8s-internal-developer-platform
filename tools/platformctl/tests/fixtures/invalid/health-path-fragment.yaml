@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: health-fragment-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/health-fragment-api
+    digest: sha256:1357135713571357135713571357135713571357135713571357135713571357
+  runtime:
+    port: 8080
+    healthPath: /health#ready
+  resources:
+    profile: small
+  availability:
+    profile: single

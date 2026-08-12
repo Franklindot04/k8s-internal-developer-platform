@@ -12,7 +12,7 @@ Stage 4 state: contains the Kind local cluster configuration and version contrac
 
 Owns reusable platform capabilities and shared contracts. Future contents may include the golden-path Helm chart, platform add-ons, shared values contracts, policy bundles, and observability integration.
 
-Stage 4 state: contains minimal GitOps-managed platform bootstrap state and the golden-path Helm chart. Add-ons, policies, and observability remain future-stage work.
+Stage 5A state: contains minimal GitOps-managed platform bootstrap state, the golden-path Helm chart, and the versioned self-service service contract schema. Add-ons, policies, observability, and service generation remain future-stage work.
 
 ## `services/`
 
@@ -24,7 +24,7 @@ Stage 2 state: recovered service directories contain no working services.
 
 Owns developer-facing and repository-support tooling. Future contents may include the service generator, template pack tests, and support utilities.
 
-Stage 2 state: repository and local Kubernetes lifecycle scripts live in `scripts/`. Future developer tooling may be added under `tools/` when it is implemented.
+Stage 5A state: repository and local Kubernetes lifecycle scripts live in `scripts/`, while the first repository-local developer tool foundation lives under `tools/platformctl/` for PlatformService validation. Generation is not implemented yet.
 
 ## `docs/`
 
