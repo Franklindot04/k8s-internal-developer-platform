@@ -14,8 +14,12 @@ def find_doc(docs, kind, name)
   docs.find { |doc| doc['kind'] == kind && doc.dig('metadata', 'name') == name }
 end
 
-def assert(condition, message)
-  abort "[error] #{message}" unless condition
+def assert(condition, message, details = nil)
+  return if condition
+
+  warn "[error] #{message}"
+  details&.each { |key, value| warn "[error] #{key}: #{value}" }
+  exit 1
 end
 
 expectations = {
@@ -94,7 +98,12 @@ assert(docs.none? { |doc| doc['kind'] == 'Secret' }, 'Secret rendered unexpected
 assert(expected[:pdb] ? pdb : pdb.nil?, 'PDB presence mismatch')
 
 container = deployment.dig('spec', 'template', 'spec', 'containers').first
-assert(container['image'] == expected[:image], 'container image mismatch')
+assert(
+  container['image'] == expected[:image],
+  'container image mismatch',
+  expected: expected[:image],
+  actual: container['image']
+)
 assert(container.dig('ports', 0, 'containerPort') == expected[:port], 'container port mismatch')
 assert(container.dig('startupProbe', 'httpGet', 'path') == expected[:health_path], 'startup path mismatch')
 assert(container.dig('readinessProbe', 'httpGet', 'path') == expected[:health_path], 'readiness path mismatch')

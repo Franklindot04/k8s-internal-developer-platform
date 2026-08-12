@@ -4,6 +4,7 @@ fullnameOverride: large-api
 replicaCount: 2
 image:
   repository: registry.test/platform/large-api
+  tag: ''
   digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
 containerPort:
   name: http

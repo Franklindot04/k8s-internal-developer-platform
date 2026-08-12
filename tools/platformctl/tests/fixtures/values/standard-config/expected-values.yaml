@@ -4,6 +4,7 @@ fullnameOverride: config-api
 replicaCount: 2
 image:
   repository: registry.test/platform/config-api
+  tag: ''
   digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
 containerPort:
   name: http

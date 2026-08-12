@@ -4,6 +4,7 @@ fullnameOverride: secret-api
 replicaCount: 2
 image:
   repository: registry.test/platform/secret-api
+  tag: ''
   digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
 containerPort:
   name: http

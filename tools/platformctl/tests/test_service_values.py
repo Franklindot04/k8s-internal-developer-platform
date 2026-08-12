@@ -74,6 +74,18 @@ class PlatformServiceValuesTests(unittest.TestCase):
         rendered = render_values_yaml(compile_values(normalize_service(document), load_profile_policy()))
         self.assertIn("port: 1024", rendered)
 
+    def test_digest_image_overrides_stage4_default_tag(self) -> None:
+        service_file = VALUE_FIXTURES / "minimal-single" / "services" / "minimal-api" / "service.yaml"
+        values = compile_values(normalize_service(load_service_yaml(service_file)), load_profile_policy())
+        self.assertEqual(
+            values["image"],
+            {
+                "repository": "registry.test/platform/minimal-api",
+                "tag": "",
+                "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            },
+        )
+
     def test_plan_returns_future_path_and_rendered_values_without_writes(self) -> None:
         fixture = VALUE_FIXTURES / "minimal-single"
         service_file = fixture / "services" / "minimal-api" / "service.yaml"

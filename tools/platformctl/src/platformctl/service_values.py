@@ -230,6 +230,7 @@ def compile_values(intent: PlatformServiceIntent, policy: ProfilePolicy) -> dict
         "replicaCount": availability.replica_count,
         "image": {
             "repository": intent.image.repository,
+            "tag": "",
             "digest": intent.image.digest,
         },
         "containerPort": {
