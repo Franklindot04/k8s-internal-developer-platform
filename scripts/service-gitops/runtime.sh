@@ -179,12 +179,19 @@ wait_for_forbidden_destination() {
 
   while [ "$(date +%s)" -le "$deadline" ]; do
     condition_text="$(kubectl -n "$ARGOCD_NAMESPACE" get application "$SERVICE_GITOPS_FORBIDDEN_APPLICATION" --context "$KIND_CONTEXT" -o jsonpath='{range .status.conditions[*]}{.type}{" "}{.message}{"\n"}{end}' 2>/dev/null || true)"
-    if printf '%s\n' "$condition_text" | grep -Eq 'not permitted|not allowed|is not permitted'; then
+    if printf '%s\n' "$condition_text" | grep -Fq 'InvalidSpecError' &&
+      printf '%s\n' "$condition_text" | grep -Fq 'destination' &&
+      printf '%s\n' "$condition_text" | grep -Fq 'allowed destinations' &&
+      printf '%s\n' "$condition_text" | grep -Fq "project 'self-service'"; then
+      printf '[info] Forbidden destination rejected by self-service AppProject:\n%s\n' "$condition_text"
       return 0
     fi
     sleep 5
   done
 
+  printf '[error] Expected forbidden destination policy rejection was not observed.\n' >&2
+  printf '[error] Conditions:\n%s\n' "${condition_text:-none}" >&2
+  kubectl -n "$ARGOCD_NAMESPACE" get application "$SERVICE_GITOPS_FORBIDDEN_APPLICATION" --context "$KIND_CONTEXT" -o jsonpath='[error] Project: {.spec.project}{"\n"}[error] Destination server: {.spec.destination.server}{"\n"}[error] Destination namespace: {.spec.destination.namespace}{"\n"}[error] Sync status: {.status.sync.status}{"\n"}' >&2 || true
   kubectl -n "$ARGOCD_NAMESPACE" get application "$SERVICE_GITOPS_FORBIDDEN_APPLICATION" --context "$KIND_CONTEXT" -o yaml || true
   fail "Forbidden destination Application was not rejected by the self-service AppProject."
 }

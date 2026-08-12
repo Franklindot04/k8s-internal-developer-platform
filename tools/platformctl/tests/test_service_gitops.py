@@ -249,6 +249,23 @@ class PlatformServiceGitOpsTests(unittest.TestCase):
         self.assertNotIn("gitops/argocd.sh validate", runtime_script)
         self.assertNotIn("platform-bootstrap", runtime_script)
 
+    def test_runtime_script_matches_structured_destination_policy_rejection(self) -> None:
+        runtime_script = RUNTIME_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("InvalidSpecError", runtime_script)
+        self.assertIn("allowed destinations", runtime_script)
+        self.assertIn("project 'self-service'", runtime_script)
+        self.assertIn("Forbidden destination rejected by self-service AppProject", runtime_script)
+        self.assertIn("Expected forbidden destination policy rejection was not observed", runtime_script)
+
+        condition = (
+            "InvalidSpecError application destination server 'https://kubernetes.default.svc' and "
+            "namespace 'default' do not match any of the allowed destinations in project 'self-service'"
+        )
+        self.assertIn("InvalidSpecError", condition)
+        self.assertIn("destination", condition)
+        self.assertIn("allowed destinations", condition)
+        self.assertIn("project 'self-service'", condition)
+
 
 def _destination_namespace_allowed(spec: dict[str, object], namespace: str) -> bool:
     destinations = spec.get("destinations", [])
