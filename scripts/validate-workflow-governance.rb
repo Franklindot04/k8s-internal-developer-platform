@@ -13,6 +13,10 @@ WORKFLOWS = {
   '.github/workflows/golden-path-helm.yml' => {
     gate: 'Helm chart and GitOps validation',
     runtime: 'Helm chart and GitOps execution'
+  },
+  '.github/workflows/service-gitops.yml' => {
+    gate: 'Service GitOps validation',
+    runtime: 'Service GitOps execution'
   }
 }.freeze
 

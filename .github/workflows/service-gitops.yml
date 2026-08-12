@@ -1,0 +1,130 @@
+name: Service GitOps
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    name: Service GitOps scope
+    runs-on: ubuntu-24.04
+    outputs:
+      run-runtime: ${{ steps.classify.outputs.run-runtime }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Classify Service GitOps scope
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            printf 'run-runtime=true\n' >>"$GITHUB_OUTPUT"
+            printf '[info] Non-PR event; Service GitOps execution required.\n'
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" >"$RUNNER_TEMP/changed-files.txt"
+          run_runtime="$(scripts/ci/workflow-scope.sh service-gitops "$RUNNER_TEMP/changed-files.txt")"
+          printf 'run-runtime=%s\n' "$run_runtime" >>"$GITHUB_OUTPUT"
+          printf '[info] Service GitOps execution required: %s\n' "$run_runtime"
+
+  service-gitops-execution:
+    name: Service GitOps execution
+    needs: scope
+    if: ${{ needs.scope.outputs.run-runtime == 'true' }}
+    runs-on: ubuntu-24.04
+    env:
+      SERVICE_GITOPS_TEST_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SERVICE_GITOPS_TEST_REVISION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install locked Python dependencies
+        run: python -m pip install --require-hashes --requirement tools/platformctl/requirements.lock
+
+      - name: Install pinned Helm validation tools
+        run: bash scripts/ci/install-helm-tools.sh
+
+      - name: Run static Service GitOps tests
+        run: make service-gitops-test
+
+      - name: Install pinned Kubernetes tools
+        run: bash scripts/ci/install-local-kubernetes-tools.sh
+
+      - name: Create local Kubernetes cluster
+        run: make cluster-create
+
+      - name: Install Argo CD control plane
+        run: make gitops-install
+
+      - name: Validate Service GitOps runtime
+        env:
+          SERVICE_GITOPS_TARGET_REVISION: ${{ env.SERVICE_GITOPS_TEST_REVISION }}
+        run: make service-gitops-runtime-validate
+
+      - name: Clean up Service GitOps runtime state
+        if: always()
+        run: bash scripts/service-gitops/runtime.sh delete
+
+      - name: Clean up GitOps state
+        if: always()
+        run: make gitops-delete
+
+      - name: Delete local Kubernetes cluster
+        if: always()
+        run: make cluster-delete
+
+  service-gitops-validation:
+    name: Service GitOps validation
+    needs:
+      - scope
+      - service-gitops-execution
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Evaluate Service GitOps result
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          RUN_RUNTIME: ${{ needs.scope.outputs.run-runtime }}
+          RUNTIME_RESULT: ${{ needs.service-gitops-execution.result }}
+        run: |
+          if [ "$SCOPE_RESULT" != "success" ]; then
+            printf '[error] Service GitOps scope detection failed with result: %s\n' "$SCOPE_RESULT" >&2
+            exit 1
+          fi
+
+          case "$RUN_RUNTIME:$RUNTIME_RESULT" in
+            true:success)
+              printf '[ok] Service GitOps execution succeeded for relevant changes.\n'
+              ;;
+            true:failure | true:cancelled | true:skipped)
+              printf '[error] Service GitOps execution result for relevant changes: %s\n' "$RUNTIME_RESULT" >&2
+              exit 1
+              ;;
+            false:skipped)
+              printf '[ok] Service GitOps execution intentionally skipped for irrelevant changes.\n'
+              ;;
+            false:success)
+              printf '[ok] Service GitOps execution succeeded although scope was not relevant.\n'
+              ;;
+            *)
+              printf '[error] Unexpected Service GitOps gate state: scope=%s runtime=%s run-runtime=%s\n' "$SCOPE_RESULT" "$RUNTIME_RESULT" "$RUN_RUNTIME" >&2
+              exit 1
+              ;;
+          esac

@@ -1,0 +1,18 @@
+repoURL: https://github.com/Franklindot04/k8s-internal-developer-platform.git
+chartPath: platform/helm-charts/golden-path
+targetRevision: main
+project: self-service
+applicationNamespace: argocd
+destinationServer: https://kubernetes.default.svc
+namespacePrefix: svc-
+valuesOutputRoot: services
+generatedDirectory: generated
+valuesFileName: values.yaml
+applicationFileName: application.yaml
+createNamespace: true
+automated:
+  prune: true
+  selfHeal: true
+syncOptions:
+  - CreateNamespace=true
+  - PruneLast=true

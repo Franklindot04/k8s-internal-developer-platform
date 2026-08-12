@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: self-service
+  namespace: argocd
+spec:
+  description: Stage 5 self-service workload boundary.
+  sourceRepos:
+    - https://github.com/Franklindot04/k8s-internal-developer-platform.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: svc-*
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+      name: svc-*
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: apps
+      kind: Deployment
+    - group: policy
+      kind: PodDisruptionBudget
+  orphanedResources:
+    warn: true

@@ -90,10 +90,12 @@ class PlatformServiceValuesTests(unittest.TestCase):
         fixture = VALUE_FIXTURES / "minimal-single"
         service_file = fixture / "services" / "minimal-api" / "service.yaml"
         before = sorted(path.relative_to(ROOT) for path in ROOT.rglob("*") if ".git" not in path.parts)
-        output_path, rendered = plan_service(service_file)
+        plan = plan_service(service_file)
         after = sorted(path.relative_to(ROOT) for path in ROOT.rglob("*") if ".git" not in path.parts)
-        self.assertEqual(output_path, Path("services/minimal-api/generated/values.yaml"))
-        self.assertEqual(rendered, (fixture / "expected-values.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(plan.values_path, Path("services/minimal-api/generated/values.yaml"))
+        self.assertEqual(plan.values_yaml, (fixture / "expected-values.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(plan.application_path, Path("services/minimal-api/generated/application.yaml"))
+        self.assertIn("kind: Application", plan.application_yaml)
         self.assertEqual(before, after)
 
     def test_future_path_requires_services_layout(self) -> None:
@@ -198,8 +200,10 @@ class PlatformServiceValuesTests(unittest.TestCase):
                 stderr=subprocess.PIPE,
             )
             self.assertEqual(result.returncode, 0)
-            self.assertIn("[ok] future output: services/minimal-api/generated/values.yaml", result.stdout)
+            self.assertIn("[ok] future values output: services/minimal-api/generated/values.yaml", result.stdout)
             self.assertIn("fullnameOverride: minimal-api", result.stdout)
+            self.assertIn("[ok] future application output: services/minimal-api/generated/application.yaml", result.stdout)
+            self.assertIn("kind: Application", result.stdout)
             self.assertEqual(result.stderr, "")
             self.assertEqual(marker.read_text(encoding="utf-8"), "unchanged")
 

@@ -288,13 +288,31 @@ def render_values_yaml(values: dict[str, Any]) -> str:
     return GENERATED_HEADER + body
 
 
-def plan_service(service_file: Path) -> tuple[Path, str]:
+@dataclass(frozen=True)
+class ServicePlan:
+    values_path: Path
+    values_yaml: str
+    application_path: Path
+    application_yaml: str
+
+
+def plan_service(service_file: Path) -> ServicePlan:
+    from platformctl.service_gitops import compile_application, future_application_path, load_gitops_policy, render_application_yaml
+
     document = load_service_yaml(service_file)
     validate_service_document(document)
     intent = normalize_service(document)
-    output_path = future_values_path(service_file, intent.name)
+    values_path = future_values_path(service_file, intent.name)
     values = compile_values(intent, load_profile_policy())
-    return output_path, render_values_yaml(values)
+    gitops_policy = load_gitops_policy()
+    application_path = future_application_path(intent.name, gitops_policy)
+    application = compile_application(intent, gitops_policy)
+    return ServicePlan(
+        values_path=values_path,
+        values_yaml=render_values_yaml(values),
+        application_path=application_path,
+        application_yaml=render_application_yaml(application),
+    )
 
 
 def future_values_path(service_file: Path, service_name: str) -> Path:
