@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: registry-port-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test:5000/platform/registry-port-api
+    digest: sha256:dadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada
+  runtime:
+    port: 8080
+    healthPath: /api/health
+  resources:
+    profile: small
+  availability:
+    profile: single

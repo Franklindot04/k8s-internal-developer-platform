@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: invalid-resource-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/invalid-resource-api
+    digest: sha256:babababababababababababababababababababababababababababababababa
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: tiny
+  availability:
+    profile: single

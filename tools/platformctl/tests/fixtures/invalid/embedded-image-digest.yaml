@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: embedded-digest-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/embedded-digest-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    digest: sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: embedded-tag-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test:5000/platform/embedded-tag-api:v1
+    digest: sha256:dededededededededededededededededededededededededededededededede
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

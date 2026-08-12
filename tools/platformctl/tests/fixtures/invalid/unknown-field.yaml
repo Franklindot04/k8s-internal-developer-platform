@@ -1,0 +1,18 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: unknown-field-api
+  owner: platform-team
+  labels:
+    app: unknown-field-api
+spec:
+  image:
+    repository: registry.test/platform/unknown-field-api
+    digest: sha256:9999999999999999999999999999999999999999999999999999999999999999
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

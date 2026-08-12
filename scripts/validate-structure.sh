@@ -19,10 +19,12 @@ required_paths=(
   docs/local-kubernetes.md
   docs/gitops.md
   docs/golden-path.md
+  docs/self-service-contract.md
   docs/ci-required-checks.md
   docs/adr/0007-bootstrap-gitops-control-plane.md
   docs/adr/0008-use-opinionated-helm-golden-path.md
   docs/adr/0009-use-always-reporting-required-check-gates.md
+  docs/adr/0010-adopt-platformservice-contract.md
   infra/kubernetes/kind/cluster.yaml
   infra/kubernetes/kind/versions.env
   infra/gitops/argocd/versions.env
@@ -39,6 +41,14 @@ required_paths=(
   platform/helm-charts/golden-path/tests/values/runtime-kind.yaml
   platform/helm-charts/golden-path/tests/values/feature-complete.yaml
   platform/helm-charts/golden-path/tests/values/invalid-image.yaml
+  platform/self-service/service.schema.json
+  tools/platformctl/pyproject.toml
+  tools/platformctl/requirements.lock
+  tools/platformctl/src/platformctl/__init__.py
+  tools/platformctl/src/platformctl/__main__.py
+  tools/platformctl/src/platformctl/cli.py
+  tools/platformctl/src/platformctl/validation.py
+  tools/platformctl/tests/test_validation.py
   .github/workflows/validate.yml
   .github/workflows/local-kubernetes.yml
   .github/workflows/gitops-control-plane.yml

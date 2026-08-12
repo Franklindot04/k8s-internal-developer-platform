@@ -1,0 +1,18 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: external-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/external-api
+    digest: sha256:abababababababababababababababababababababababababababababababab
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single
+  exposure:
+    type: external

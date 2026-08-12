@@ -1,0 +1,18 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: multiple-doc-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/multiple-doc-api
+    digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single
+---
+ignored: true

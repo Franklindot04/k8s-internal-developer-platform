@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: image-trailing-slash-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/image-trailing-slash-api/
+    digest: sha256:abababababababababababababababababababababababababababababababab
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

@@ -1,0 +1,20 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: billing-api
+  owner: payments-team
+  description: Valid service intent with non-secret application configuration.
+spec:
+  image:
+    repository: registry.test/platform/billing-api
+    digest: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  runtime:
+    port: 8443
+    healthPath: /ready
+  resources:
+    profile: medium
+  availability:
+    profile: standard
+  config:
+    LOG_LEVEL: info
+    FEATURE_FLAGS: stable

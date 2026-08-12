@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: service-name-that-is-longer-than-forty-eight-characters
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform/overlong-service-name
+    digest: sha256:5555555555555555555555555555555555555555555555555555555555555555
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

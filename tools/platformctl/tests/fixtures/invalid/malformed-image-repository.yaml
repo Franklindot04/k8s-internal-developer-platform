@@ -1,0 +1,16 @@
+apiVersion: idp/v1alpha1
+kind: PlatformService
+metadata:
+  name: malformed-repository-api
+  owner: platform-team
+spec:
+  image:
+    repository: registry.test/platform//malformed-repository-api
+    digest: sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef
+  runtime:
+    port: 8080
+    healthPath: /healthz
+  resources:
+    profile: small
+  availability:
+    profile: single

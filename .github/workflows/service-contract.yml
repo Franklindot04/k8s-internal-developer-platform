@@ -1,0 +1,30 @@
+name: Service Contract
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Service contract validation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install locked Python dependencies
+        run: python -m pip install --require-hashes --requirement tools/platformctl/requirements.lock
+
+      - name: Validate PlatformService schema JSON
+        run: python -m json.tool platform/self-service/service.schema.json >/dev/null
+
+      - name: Run PlatformService contract tests
+        run: make service-contract-test
