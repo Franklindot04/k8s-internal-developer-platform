@@ -31,7 +31,7 @@ Application teams remain responsible for service behavior, application tests, se
 
 ## Current Repository State
 
-The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, a reproducible Argo CD GitOps control plane for local reconciliation, a reusable Helm golden-path chart for HTTP workloads, and the completed Stage 5 developer self-service foundation. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, minimal Git-managed platform bootstrap state, golden-path chart validation, a GitOps-deployed demo workload, and `platformctl` support for `PlatformService` validation, read-only planning, safe repository generation, and read-only drift verification. It does not yet contain a Kyverno policy set, observability stack, environment promotion model, developer portal, application source delivery workflow, or Stage 6 software supply-chain automation.
+The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, a reproducible Argo CD GitOps control plane for local reconciliation, a reusable Helm golden-path chart for HTTP workloads, and the completed Stage 5 developer self-service foundation. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, minimal Git-managed platform bootstrap state, golden-path chart validation, a GitOps-deployed demo workload, and `platformctl` support for `PlatformService` validation, read-only planning, safe repository generation, and read-only drift verification. It does not yet contain a Kyverno policy set, observability stack, environment promotion model, developer portal, application source delivery workflow, or implemented Stage 6 software supply-chain automation. Stage 6A defines the supply-chain architecture and trust contracts before build implementation begins.
 
 ## Target Architecture
 
@@ -84,7 +84,9 @@ The future observability model will include application and platform metrics, lo
 
 ## Software Delivery Model
 
-GitHub Actions will provide repository validation during Stage 1. Later stages will add application CI, image builds, security scanning, SBOM generation, immutable image references, provenance considerations, and promotion controls.
+GitHub Actions provide repository validation and platform runtime proof workflows. Stage 6 will add language-neutral software supply-chain workflows that verify source, build a representative OCI artifact, generate SBOM and vulnerability evidence, publish only from trusted events, produce an immutable digest, and bind provenance or attestation to that digest. Stage 5 consumes repository plus digest. Environment promotion remains a Stage 9 concern.
+
+See [../supply-chain-architecture.md](../supply-chain-architecture.md) for the Stage 6 supply-chain trust, artifact, evidence, publication, and handoff contracts.
 
 ## Non-Goals
 

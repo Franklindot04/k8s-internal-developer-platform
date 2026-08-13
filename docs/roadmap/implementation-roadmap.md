@@ -64,15 +64,23 @@ Definition of done: a generated service can be reviewed, tested, and deployed wi
 
 ## Stage 6: CI and Software Supply-Chain Controls
 
-Objective: Expand validation into meaningful CI and supply-chain checks.
+Objective: Produce trusted software artifacts and evidence before immutable image digests enter the Stage 5 deployment intent contract.
 
-Principal capabilities: YAML validation, shell validation, Helm lint/render, Kubernetes schema validation, application tests, container build, dependency checks, image scanning, secret scanning, SBOM, immutable image references, and provenance considerations.
+Principal capabilities: supply-chain architecture and trust contracts, a representative build fixture, reproducible container build, untrusted PR build/test/SBOM/vulnerability verification, trusted OCI publication, immutable image digest output, provenance or attestation bound to the digest, and documented manual handoff into `PlatformService`.
 
-Dependencies: golden-path chart and generated/reference service.
+Dependencies: golden-path chart, completed Stage 5 `PlatformService` digest contract, and a representative build fixture introduced during Stage 6.
 
-Meaningful validation/evidence: pull requests fail on invalid manifests, broken charts, insecure patterns, or test failures.
+Meaningful validation/evidence: untrusted pull requests can prove build/test/evidence generation without publication credentials; trusted publication can publish an OCI image, resolve its immutable digest, generate required evidence, and hand repository plus digest to Stage 5.
 
-Definition of done: repository changes are protected by relevant automated checks before merge.
+Definition of done: a representative source has a repeatable build contract; tests pass; container build succeeds; untrusted PRs cannot publish; trusted publication exists; the published artifact has an immutable digest; Stage 5 can consume repository plus digest; SBOM, vulnerability evidence, and provenance or attestation exist; required-check behavior remains governable; no personal publication credentials are required where avoidable; documentation explains build, publication, evidence, and digest handoff; environment promotion and Kubernetes admission enforcement remain outside Stage 6.
+
+Planned slices:
+
+- Stage 6A - Supply-Chain Architecture & Trust Contracts: in progress; defines trust, artifact, evidence, publication, and handoff contracts without software implementation.
+- Stage 6B - Representative Build Fixture & Reproducible Build: future; proves a minimal application source can be tested and repeatably built into a container artifact without registry publication.
+- Stage 6C - PR Build / Test / SBOM / Vulnerability Verification: future; proves untrusted PR verification with no publication credentials.
+- Stage 6D - Trusted OCI Publication & Immutable Digest: future; publishes from a trusted event and produces authoritative repository plus digest.
+- Stage 6E - Provenance / Attestation: future; binds trusted build provenance to the published digest and evaluates keyless signing.
 
 ## Stage 7: Kubernetes Security and Policy Enforcement
 

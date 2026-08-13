@@ -1,12 +1,12 @@
 # Kubernetes Internal Developer Platform
 
-This repository is being rebuilt into a local-first Kubernetes Internal Developer Platform (IDP) portfolio project. The goal is to demonstrate practical platform engineering through reproducible Kubernetes environments, GitOps delivery, a reusable Helm golden path, developer self-service, policy enforcement, observability, CI/CD, and operational documentation.
+This repository is being rebuilt into a local-first Kubernetes Internal Developer Platform (IDP) portfolio project. The goal is to demonstrate practical platform engineering through reproducible Kubernetes environments, GitOps delivery, a reusable Helm golden path, developer self-service, software supply-chain controls, policy enforcement, observability, CI/CD, and operational documentation.
 
 ## Current Status
 
-The project is in Stage 4: production-quality golden-path Helm chart. Stage 1 established the recovery and engineering baseline, Stage 2 added a real Kind-based local cluster foundation, Stage 3 added Argo CD bootstrap and reconciliation proof, and Stage 4 adds a reusable Helm workload contract with GitOps runtime validation.
+The project is in Stage 6A: supply-chain architecture and trust contracts. Stage 1 established the recovery and engineering baseline, Stage 2 added a real Kind-based local cluster foundation, Stage 3 added Argo CD bootstrap and reconciliation proof, Stage 4 added a reusable Helm workload contract with GitOps runtime validation, and Stage 5 added the developer self-service foundation.
 
-The local Kubernetes foundation is implemented with Kind. Argo CD is installed from a pinned and checksum-verified upstream manifest, then used to reconcile minimal platform bootstrap state and the golden-path demo workload. Kyverno policies, observability, service generation, environment promotion, and application delivery workflows remain target capabilities for later stages.
+The local Kubernetes foundation is implemented with Kind. Argo CD is installed from a pinned and checksum-verified upstream manifest, then used to reconcile minimal platform bootstrap state and the golden-path demo workload. Stage 5 can validate, plan, generate, and verify `PlatformService` repository artifacts. Stage 6A defines the supply-chain architecture before build, publication, SBOM, vulnerability, provenance, or signing implementation begins. Kyverno policies, observability, environment promotion, and later application delivery workflows remain target capabilities for later stages.
 
 ## Target Capabilities
 
@@ -15,6 +15,7 @@ The local Kubernetes foundation is implemented with Kind. Argo CD is installed f
 - Production-quality reusable application packaging with Helm
 - Developer self-service service generation
 - GitHub Actions validation and later CI/supply-chain workflows
+- Trusted OCI publication, immutable image digests, SBOM, vulnerability evidence, and provenance
 - Kubernetes-native policy enforcement with Kyverno
 - Metrics, logs, tracing, alerts, and SRE operating guidance
 - Clear architecture, ADRs, recovery records, and roadmap documentation
@@ -23,14 +24,14 @@ The local Kubernetes foundation is implemented with Kind. Argo CD is installed f
 
 The intended platform separates infrastructure bootstrap, platform capabilities, reference workloads, developer tooling, and documentation. The local demonstration path will be runnable without mandatory cloud spend, while the architecture leaves room for a future optional cloud reference deployment.
 
-See [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) for the target architecture and current repository state.
+See [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) for the target architecture and current repository state. See [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md) for the Stage 6 supply-chain trust, artifact, evidence, publication, and handoff contracts.
 
 ## Repository Structure
 
 - `infra/` - cluster bootstrap, Argo CD control-plane bootstrap configuration, future environment infrastructure, and platform policy bootstrap.
 - `platform/` - GitOps-managed platform bootstrap state, reusable Helm golden-path chart, and future platform add-ons and shared contracts.
-- `services/` - future reference workloads and generated golden-path demonstration services.
-- `tools/` - future developer-facing tooling, service generation, and repository support tooling.
+- `services/` - service intent sources, platform-managed generated service artifacts, and future reference workloads.
+- `tools/` - developer-facing tooling, service generation, and repository support tooling.
 - `docs/` - architecture, ADRs, recovery decisions, roadmap, and later developer/operator documentation.
 - `.github/` - repository validation and local platform proof workflows.
 - `scripts/` - repository validation, local Kubernetes, GitOps, Helm chart, and golden-path lifecycle scripts.
