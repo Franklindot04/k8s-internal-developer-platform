@@ -103,6 +103,7 @@ def assert_supply_chain_pr_workflow(content)
   fail_with("#{path} must not publish registry images") if content.match?(/docker\s+(login|push)|ghcr\.io/)
   fail_with("#{path} must not request OIDC") if content.match?(/id-token:\s+write/)
   fail_with("#{path} must not add signing or attestations") if content.match?(/cosign|sigstore|attestation|attestations:\s+write|provenance/)
+  fail_with("#{path} must not use runner context in job-level env") if content.include?('ARTIFACT_STAGING_DIR: ${{ runner.temp }}')
 end
 
 WORKFLOWS.each do |path, contract|

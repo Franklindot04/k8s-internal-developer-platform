@@ -52,7 +52,6 @@ jobs:
       WORKFLOW_RUN_ID: ${{ github.run_id }}
       WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
       EVIDENCE_DIR: .tmp/supply-chain-evidence
-      ARTIFACT_STAGING_DIR: ${{ runner.temp }}/supply-chain-pr-artifacts
       IMAGE_ARTIFACT_NAME: supply-chain-image-pr-${{ github.event.pull_request.number }}-run-${{ github.run_id }}
       EVIDENCE_ARTIFACT_NAME: supply-chain-evidence-pr-${{ github.event.pull_request.number }}-run-${{ github.run_id }}
       IMAGE_ARCHIVE_MAX_BYTES: "52428800"
@@ -75,7 +74,7 @@ jobs:
           printf '[info] PR head SHA: %s\n' "$PR_HEAD_SHA"
 
       - name: Clean supply-chain evidence state
-        run: rm -rf .tmp/supply-chain-evidence .tmp/supply-chain-tools "$ARTIFACT_STAGING_DIR"
+        run: rm -rf .tmp/supply-chain-evidence .tmp/supply-chain-tools "$RUNNER_TEMP/supply-chain-pr-artifacts"
 
       - name: Run supply-chain evidence
         id: evidence_run
@@ -140,8 +139,8 @@ jobs:
         id: stage_artifacts
         if: ${{ always() && steps.evidence_validation.outputs.validated == 'true' && steps.size_guard.outcome == 'success' }}
         run: |
-          image_dir="$ARTIFACT_STAGING_DIR/image"
-          evidence_dir="$ARTIFACT_STAGING_DIR/evidence"
+          image_dir="$RUNNER_TEMP/supply-chain-pr-artifacts/image"
+          evidence_dir="$RUNNER_TEMP/supply-chain-pr-artifacts/evidence"
           mkdir -p "$image_dir" "$evidence_dir"
 
           cp "$EVIDENCE_DIR/supply-chain-fixture.tar" "$image_dir/supply-chain-fixture.tar"
@@ -172,7 +171,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.IMAGE_ARTIFACT_NAME }}
-          path: ${{ env.ARTIFACT_STAGING_DIR }}/image/supply-chain-fixture.tar
+          path: ${{ runner.temp }}/supply-chain-pr-artifacts/image/supply-chain-fixture.tar
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
@@ -184,18 +183,18 @@ jobs:
         with:
           name: ${{ env.EVIDENCE_ARTIFACT_NAME }}
           path: |
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/artifact-sha256.txt
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/runtime-source-archive-sha256.txt
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/loaded-image-id.txt
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/sbom-sha256.txt
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/sbom-syft-sha256.txt
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/vulnerabilities-sha256.txt
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/sbom.cdx.json
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/sbom.syft.json
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/vulnerabilities.json
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/policy-result.json
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/evidence-manifest.json
-            ${{ env.ARTIFACT_STAGING_DIR }}/evidence/evidence-manifest.json.sha256
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/artifact-sha256.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/runtime-source-archive-sha256.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/loaded-image-id.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/sbom-sha256.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/sbom-syft-sha256.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/vulnerabilities-sha256.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/sbom.cdx.json
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/sbom.syft.json
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/vulnerabilities.json
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/policy-result.json
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/evidence-manifest.json
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/evidence-manifest.json.sha256
           if-no-files-found: error
           retention-days: 14
 
