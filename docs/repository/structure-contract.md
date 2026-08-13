@@ -29,7 +29,7 @@ Unexpected persistent files under `generated/` are invalid. Generated artifacts 
 
 Owns developer-facing and repository-support tooling. Future contents may include template pack tests, additional support utilities, and later interfaces over the self-service contract.
 
-Stage 5 state: repository and local Kubernetes lifecycle scripts live in `scripts/`, while repository-local developer self-service tooling lives under `tools/platformctl/`. `platformctl` validates `PlatformService` files, previews deterministic Helm values and Argo CD Applications, safely generates the canonical `values.yaml` and `application.yaml` artifact pair, and verifies generated drift without writing.
+Stage 6B state: repository and local Kubernetes lifecycle scripts live in `scripts/`, while repository-local developer self-service tooling lives under `tools/platformctl/`. `platformctl` validates `PlatformService` files, previews deterministic Helm values and Argo CD Applications, safely generates the canonical `values.yaml` and `application.yaml` artifact pair, and verifies generated drift without writing. `scripts/supply-chain/fixture.sh` owns the Docker-based source test, image build, and smoke proof for the test-only supply-chain fixture.
 
 ## `docs/`
 
@@ -47,4 +47,10 @@ Stage 6A state: baseline repository validation, local Kubernetes lifecycle, GitO
 
 Owns small repository-maintenance scripts that are directly invoked by `make` or CI. Scripts must fail when checks fail and must not report success for work they did not perform.
 
-Stage 6A state: tool verification, repository validation, local Kubernetes lifecycle, GitOps lifecycle, Helm chart validation, golden-path runtime lifecycle, and self-service validation/generation support scripts are established. No Stage 6 build or publication scripts exist yet.
+Stage 6B state: tool verification, repository validation, local Kubernetes lifecycle, GitOps lifecycle, Helm chart validation, golden-path runtime lifecycle, self-service validation/generation support scripts, and a test-only supply-chain fixture build script are established. No Stage 6 publication scripts exist yet.
+
+## `tests/`
+
+Owns test fixtures and non-production proof assets.
+
+Stage 6B state: contains one test-only `supply-chain-fixture` representative service. It proves source tests, local container buildability, local image identity reporting, non-root runtime, and graceful shutdown behavior without becoming a production service or changing the platform's language-neutral application contract.

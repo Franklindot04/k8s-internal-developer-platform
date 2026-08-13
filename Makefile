@@ -1,6 +1,6 @@
 PYTHON ?= python3
 
-.PHONY: help verify-tools verify-cluster-tools verify-helm-tools validate service-contract-test service-values-test service-gitops-test service-generation-test service-values-helm-validate service-gitops-runtime-validate cluster-create cluster-status cluster-validate cluster-delete gitops-install gitops-bootstrap gitops-status gitops-validate gitops-test-reconciliation gitops-delete helm-lint helm-render helm-validate helm-server-dry-run golden-path-bootstrap golden-path-status golden-path-validate golden-path-delete
+.PHONY: help verify-tools verify-cluster-tools verify-helm-tools validate service-contract-test service-values-test service-gitops-test service-generation-test service-values-helm-validate service-gitops-runtime-validate supply-chain-fixture-test supply-chain-fixture-image-build supply-chain-fixture-smoke-test supply-chain-fixture-validate cluster-create cluster-status cluster-validate cluster-delete gitops-install gitops-bootstrap gitops-status gitops-validate gitops-test-reconciliation gitops-delete helm-lint helm-render helm-validate helm-server-dry-run golden-path-bootstrap golden-path-status golden-path-validate golden-path-delete
 
 help:
 	@printf '%s\n' 'Available targets:'
@@ -14,6 +14,10 @@ help:
 	@printf '%s\n' '  make service-generation-test  Run safe service artifact generation tests'
 	@printf '%s\n' '  make service-values-helm-validate  Validate generated values against the golden-path chart'
 	@printf '%s\n' '  make service-gitops-runtime-validate  Validate self-service GitOps runtime reconciliation'
+	@printf '%s\n' '  make supply-chain-fixture-test  Run fixture source tests in the pinned Docker builder'
+	@printf '%s\n' '  make supply-chain-fixture-image-build  Build the local fixture image'
+	@printf '%s\n' '  make supply-chain-fixture-smoke-test  Smoke-test the local fixture image'
+	@printf '%s\n' '  make supply-chain-fixture-validate  Run fixture source test, build, and smoke proof'
 	@printf '%s\n' '  make cluster-create        Create the idp-local Kind cluster'
 	@printf '%s\n' '  make cluster-status        Show idp-local cluster status'
 	@printf '%s\n' '  make cluster-validate      Validate idp-local cluster readiness'
@@ -62,6 +66,18 @@ service-values-helm-validate:
 
 service-gitops-runtime-validate:
 	@bash scripts/service-gitops/runtime.sh validate
+
+supply-chain-fixture-test:
+	@bash scripts/supply-chain/fixture.sh test
+
+supply-chain-fixture-image-build:
+	@bash scripts/supply-chain/fixture.sh build
+
+supply-chain-fixture-smoke-test:
+	@bash scripts/supply-chain/fixture.sh smoke
+
+supply-chain-fixture-validate:
+	@bash scripts/supply-chain/fixture.sh validate
 
 cluster-create:
 	@bash scripts/kubernetes/cluster.sh create

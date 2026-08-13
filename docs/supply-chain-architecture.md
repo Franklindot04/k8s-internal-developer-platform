@@ -33,11 +33,11 @@ Today, that digest is an explicit external input. The repository does not yet co
 
 This repository is primarily a platform implementation, configuration, documentation, and test/integration fixture repository. Stage 6 does not convert it into a production application monorepo.
 
-Stage 6B may add one test-only representative build fixture solely to prove the supply-chain contract. That fixture must not become the required application language, the developer golden-path language, a production service, or a second product maintained inside the platform repository.
+Stage 6B adds one test-only representative build fixture solely to prove the supply-chain contract. That fixture must not become the required application language, the developer golden-path language, a production service, or a second product maintained inside the platform repository.
 
 ## Language Neutrality
 
-Stage 6 is language-neutral. `PlatformService` consumes deployable OCI identity, not source-language details. A future representative fixture may use one implementation language to make the build/test proof executable, but that choice must not appear in the platform API contract. The fixture language selection belongs to Stage 6B.
+Stage 6 is language-neutral. `PlatformService` consumes deployable OCI identity, not source-language details. The representative fixture uses Go to make the build/test proof executable, but that choice does not appear in the platform API contract.
 
 ## Image Identity
 
@@ -123,7 +123,7 @@ Stage 6A does not claim bit-for-bit reproducible image builds. Later slices must
 
 ## Base Image Boundary
 
-Stage 6B must decide the representative fixture's base-image policy. The initial architecture expectation is immutable base-image identity where feasible, no `latest`, minimal runtime surface, and predictable architecture. Detailed patch cadence and rebuild policy may be later hardening.
+Stage 6B uses one test-only Go fixture under `tests/fixtures/supply-chain-fixture/` to prove a repeatable build contract with pinned declared inputs. The fixture uses an official Go builder image pinned by immutable digest, a scratch runtime, linux/amd64 as the canonical target platform, no third-party application dependencies, and no registry publication. Its local image tag is only a mutable local convenience, and Docker's local image ID is not an authoritative registry digest.
 
 ## Required Evidence
 
@@ -239,9 +239,9 @@ Initial Stage 6 should avoid multi-cloud registry abstraction, multiple applicat
 
 Current slice. Defines architecture and trust contracts. No software implementation.
 
-### Stage 6B - Representative Build Fixture & Reproducible Build
+### Stage 6B - Representative Build Fixture & Repeatable Build
 
-Future slice. Proves a minimal application source can be tested and repeatably built into a container artifact. No registry publication.
+Current slice. Proves a minimal application source can be tested and repeatably built into a local container artifact with pinned declared inputs. No registry publication.
 
 ### Stage 6C - PR Build / Test / SBOM / Vulnerability Verification
 

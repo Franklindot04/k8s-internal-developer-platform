@@ -74,6 +74,13 @@ required_paths=(
   scripts/helm/validate-golden-path.sh
   scripts/helm/assert-golden-path-render.rb
   scripts/golden-path/lifecycle.sh
+  scripts/supply-chain/fixture.sh
+  tests/fixtures/supply-chain-fixture/README.md
+  tests/fixtures/supply-chain-fixture/go.mod
+  tests/fixtures/supply-chain-fixture/cmd/server/main.go
+  tests/fixtures/supply-chain-fixture/internal/health/handler.go
+  tests/fixtures/supply-chain-fixture/internal/health/handler_test.go
+  tests/fixtures/supply-chain-fixture/Dockerfile
   scripts/ci/install-local-kubernetes-tools.sh
   scripts/ci/install-helm-tools.sh
 )
@@ -92,5 +99,57 @@ if [ "$missing" -ne 0 ]; then
 fi
 
 bash scripts/validate-generated-structure.sh
+
+fixture_path="tests/fixtures/supply-chain-fixture"
+dockerfile="$fixture_path/Dockerfile"
+
+if [ -d "services/supply-chain-fixture" ]; then
+  printf '[error] supply-chain fixture must not live under services/\n' >&2
+  missing=1
+fi
+
+if ! grep -Eq '^ARG TARGETPLATFORM=linux/amd64$' "$dockerfile" || ! grep -Eq '^FROM golang:1\.26\.6-bookworm@sha256:[0-9a-f]{64} AS test$' "$dockerfile"; then
+  printf '[error] supply-chain fixture builder image must be immutable-digest pinned\n' >&2
+  missing=1
+fi
+
+if ! grep -Fqx "RUN test \"\$TARGETPLATFORM\" = \"linux/amd64\"" "$dockerfile"; then
+  printf '[error] supply-chain fixture must assert linux/amd64 as the canonical target platform\n' >&2
+  missing=1
+fi
+
+if grep -Eq '(^|[^[:alnum:]_])latest([^[:alnum:]_]|$)' "$dockerfile"; then
+  printf '[error] supply-chain fixture Dockerfile must not use latest\n' >&2
+  missing=1
+fi
+
+if ! grep -Eq '^FROM scratch AS runtime$' "$dockerfile"; then
+  printf '[error] supply-chain fixture runtime image must be scratch\n' >&2
+  missing=1
+fi
+
+if ! grep -Eq '^USER 65532:65532$' "$dockerfile"; then
+  printf '[error] supply-chain fixture runtime must use numeric non-root USER\n' >&2
+  missing=1
+fi
+
+if ! grep -Eq '^EXPOSE 8080$' "$dockerfile"; then
+  printf '[error] supply-chain fixture must expose port 8080\n' >&2
+  missing=1
+fi
+
+if grep -Eiq 'apt-get|apk |yum |dnf |microdnf|brew |pip install|npm install|go get' "$dockerfile" "$fixture_path/go.mod" scripts/supply-chain/fixture.sh; then
+  printf '[error] supply-chain fixture must not install packages during build or runtime\n' >&2
+  missing=1
+fi
+
+if grep -Eiq 'docker (login|push)|packages:[[:space:]]*write|cosign|syft|grype|trivy|attestation|signing|admission|promotion|--provenance(=true|[[:space:]]+true)|--sbom(=true|[[:space:]]+true)' "$dockerfile" scripts/supply-chain/fixture.sh; then
+  printf '[error] supply-chain fixture must not introduce Stage 6C+ tooling or registry mutation\n' >&2
+  missing=1
+fi
+
+if [ "$missing" -ne 0 ]; then
+  exit 1
+fi
 
 printf '[ok] repository structure contract files are present\n'
