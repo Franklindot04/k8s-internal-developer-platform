@@ -77,7 +77,7 @@ Definition of done: a representative source has a repeatable build contract; tes
 Planned slices:
 
 - Stage 6A - Supply-Chain Architecture & Trust Contracts: complete; defines trust, artifact, evidence, publication, and handoff contracts without software implementation.
-- Stage 6B - Representative Build Fixture & Repeatable Build: in progress; proves a minimal application source can be tested and repeatably built into a local container artifact without registry publication.
+- Stage 6B - Representative Build Fixture & Repeatable Build: complete; adds a test-only Go representative fixture while preserving the language-neutral platform contract, with standard-library source tests, a pinned official builder digest, linux/amd64 local build proof, scratch non-root runtime, local image identity reporting, health and graceful shutdown/process exit-code smoke proof, and no registry publication or Stage 6C+ evidence tooling.
 - Stage 6C - PR Build / Test / SBOM / Vulnerability Verification: future; proves untrusted PR verification with no publication credentials.
 - Stage 6D - Trusted OCI Publication & Immutable Digest: future; publishes from a trusted event and produces authoritative repository plus digest.
 - Stage 6E - Provenance / Attestation: future; binds trusted build provenance to the published digest and evaluates keyless signing.
