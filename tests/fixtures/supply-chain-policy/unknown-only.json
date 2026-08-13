@@ -1,0 +1,14 @@
+{
+  "matches": [
+    {
+      "vulnerability": {
+        "id": "CVE-0000-UNKNOWN",
+        "severity": "Unknown"
+      },
+      "artifact": {
+        "name": "synthetic-unknown",
+        "version": "1.0.0"
+      }
+    }
+  ]
+}

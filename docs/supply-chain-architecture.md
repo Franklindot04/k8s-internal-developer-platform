@@ -101,6 +101,10 @@ trusted publication source revision
 
 Stage 6C proves the source change is buildable, tests pass, representative container construction succeeds, SBOM generation works, vulnerability scanning works, policy can be evaluated, and no publication privileges are available. Its output must not be treated as authoritative supply-chain evidence for a different artifact rebuilt and published after merge.
 
+Stage 6C1 establishes the local evidence engine before PR automation is introduced. It builds one Docker image archive for the representative fixture, uses the SHA-256 of the exact archive bytes as local verification artifact identity, loads that archive for runtime smoke proof, and runs one Syft archive cataloging operation that emits two sibling SBOM serializations: CycloneDX JSON as the portable reviewer-facing SBOM, and Syft JSON as rich scanner-native inventory evidence. Grype scans the exact Docker archive directly because direct archive scanning preserves the same primary artifact identity while avoiding the current Go SBOM function-symbol warning seen when scanning serialized SBOMs. The repository vulnerability policy evaluates the Grype report, and an evidence manifest plus sidecar checksum validates the procedural chain. This archive SHA-256 is not a registry digest, published digest, Stage 5 deployable digest, or authoritative registry identity.
+
+Stage 6C2 remains future work. It will wire the already-tested evidence engine into untrusted pull-request CI with read-only permissions, no publication credentials, an always-reporting final gate, and retained evidence artifacts.
+
 Stage 6D must ensure the exact deployable artifact has an immutable digest, SBOM, and vulnerability evidence before that digest is ready for Stage 5 handoff. Stage 6A does not decide whether Stage 6D rebuilds on protected `main`, promotes an identical prebuilt OCI artifact while preserving its digest, or uses another safe design. It locks only this invariant: required evidence must refer to the exact published artifact digest.
 
 ## Registry Contract

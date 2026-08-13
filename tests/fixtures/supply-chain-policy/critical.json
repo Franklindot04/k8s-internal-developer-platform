@@ -1,0 +1,19 @@
+{
+  "matches": [
+    {
+      "vulnerability": {
+        "id": "CVE-0000-CRITICAL",
+        "severity": "Critical",
+        "fix": {
+          "versions": [
+            "2.0.0"
+          ]
+        }
+      },
+      "artifact": {
+        "name": "synthetic-critical",
+        "version": "1.0.0"
+      }
+    }
+  ]
+}

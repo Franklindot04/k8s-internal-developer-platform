@@ -17,6 +17,8 @@ run "Validate YAML" ruby scripts/validate-yaml.rb
 run "Validate shell syntax" bash scripts/validate-shell.sh
 run "Test workflow scope classifier" bash scripts/ci/test-workflow-scope.sh
 run "Validate workflow governance" ruby scripts/validate-workflow-governance.rb
+run "Validate supply-chain evidence tooling" ruby scripts/supply-chain/validate-evidence-tooling.rb
+run "Test supply-chain vulnerability policy" ruby scripts/supply-chain/evaluate-vulnerabilities.rb --self-test tests/fixtures/supply-chain-policy
 
 if command -v shellcheck >/dev/null 2>&1; then
   run "Run ShellCheck" shellcheck scripts/*.sh scripts/kubernetes/*.sh scripts/ci/*.sh scripts/gitops/*.sh scripts/helm/*.sh scripts/golden-path/*.sh
