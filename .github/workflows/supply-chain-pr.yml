@@ -73,6 +73,12 @@ jobs:
           printf '[info] PR base SHA: %s\n' "$PR_BASE_SHA"
           printf '[info] PR head SHA: %s\n' "$PR_HEAD_SHA"
 
+      - name: Show Docker build environment
+        run: |
+          docker version --format 'Docker server version: {{.Server.Version}}'
+          docker buildx version
+          docker buildx ls
+
       - name: Clean supply-chain evidence state
         run: rm -rf .tmp/supply-chain-evidence .tmp/supply-chain-tools "$RUNNER_TEMP/supply-chain-pr-artifacts"
 
@@ -103,7 +109,9 @@ jobs:
           evidence_files="
           $EVIDENCE_DIR/artifact-sha256.txt
           $EVIDENCE_DIR/runtime-source-archive-sha256.txt
+          $EVIDENCE_DIR/built-image-id.txt
           $EVIDENCE_DIR/loaded-image-id.txt
+          $EVIDENCE_DIR/pre-load-image-removal.txt
           $EVIDENCE_DIR/sbom-sha256.txt
           $EVIDENCE_DIR/sbom-syft-sha256.txt
           $EVIDENCE_DIR/vulnerabilities-sha256.txt
@@ -146,7 +154,9 @@ jobs:
           cp "$EVIDENCE_DIR/supply-chain-fixture.tar" "$image_dir/supply-chain-fixture.tar"
           cp "$EVIDENCE_DIR/artifact-sha256.txt" "$evidence_dir/artifact-sha256.txt"
           cp "$EVIDENCE_DIR/runtime-source-archive-sha256.txt" "$evidence_dir/runtime-source-archive-sha256.txt"
+          cp "$EVIDENCE_DIR/built-image-id.txt" "$evidence_dir/built-image-id.txt"
           cp "$EVIDENCE_DIR/loaded-image-id.txt" "$evidence_dir/loaded-image-id.txt"
+          cp "$EVIDENCE_DIR/pre-load-image-removal.txt" "$evidence_dir/pre-load-image-removal.txt"
           cp "$EVIDENCE_DIR/sbom-sha256.txt" "$evidence_dir/sbom-sha256.txt"
           cp "$EVIDENCE_DIR/sbom-syft-sha256.txt" "$evidence_dir/sbom-syft-sha256.txt"
           cp "$EVIDENCE_DIR/vulnerabilities-sha256.txt" "$evidence_dir/vulnerabilities-sha256.txt"
@@ -185,7 +195,9 @@ jobs:
           path: |
             ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/artifact-sha256.txt
             ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/runtime-source-archive-sha256.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/built-image-id.txt
             ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/loaded-image-id.txt
+            ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/pre-load-image-removal.txt
             ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/sbom-sha256.txt
             ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/sbom-syft-sha256.txt
             ${{ runner.temp }}/supply-chain-pr-artifacts/evidence/vulnerabilities-sha256.txt
@@ -203,12 +215,12 @@ jobs:
         run: |
           {
             printf '## Supply-chain PR evidence\n\n'
-            printf '- Source revision: `%s`\n' "$SOURCE_REVISION"
-            printf '- PR base SHA: `%s`\n' "$PR_BASE_SHA"
-            printf '- PR head SHA: `%s`\n' "$PR_HEAD_SHA"
-            printf '- PR merge SHA: `%s`\n' "$PR_MERGE_SHA"
+            printf '%s\n' "- Source revision: \`$SOURCE_REVISION\`"
+            printf '%s\n' "- PR base SHA: \`$PR_BASE_SHA\`"
+            printf '%s\n' "- PR head SHA: \`$PR_HEAD_SHA\`"
+            printf '%s\n' "- PR merge SHA: \`$PR_MERGE_SHA\`"
             if [ -f "$EVIDENCE_DIR/artifact-sha256.txt" ]; then
-              printf '- Archive SHA-256: `%s`\n' "$(cat "$EVIDENCE_DIR/artifact-sha256.txt")"
+              printf '%s\n' "- Archive SHA-256: \`$(cat "$EVIDENCE_DIR/artifact-sha256.txt")\`"
             fi
             if [ -f "$EVIDENCE_DIR/policy-result.json" ]; then
               ruby -rjson -e '
@@ -218,14 +230,14 @@ jobs:
                 puts "- Vulnerability counts: `#{counts}`"
               ' "$EVIDENCE_DIR/policy-result.json"
             fi
-            printf '- Evidence validation: `%s`\n' "${{ steps.evidence_validation.outputs.validated }}"
-            printf '- Image artifact: `%s`\n' "$IMAGE_ARTIFACT_NAME"
-            printf '- Evidence artifact: `%s`\n' "$EVIDENCE_ARTIFACT_NAME"
+            printf '%s\n' "- Evidence validation: \`${{ steps.evidence_validation.outputs.validated }}\`"
+            printf '%s\n' "- Image artifact: \`$IMAGE_ARTIFACT_NAME\`"
+            printf '%s\n' "- Evidence artifact: \`$EVIDENCE_ARTIFACT_NAME\`"
             if [ -n "${{ steps.upload_image.outputs.artifact-digest }}" ]; then
-              printf '- Image artifact digest: `%s`\n' "${{ steps.upload_image.outputs.artifact-digest }}"
+              printf '%s\n' "- Image artifact digest: \`${{ steps.upload_image.outputs.artifact-digest }}\`"
             fi
             if [ -n "${{ steps.upload_evidence.outputs.artifact-digest }}" ]; then
-              printf '- Evidence artifact digest: `%s`\n' "${{ steps.upload_evidence.outputs.artifact-digest }}"
+              printf '%s\n' "- Evidence artifact digest: \`${{ steps.upload_evidence.outputs.artifact-digest }}\`"
             fi
           } >>"$GITHUB_STEP_SUMMARY"
 

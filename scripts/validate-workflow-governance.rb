@@ -101,9 +101,11 @@ def assert_supply_chain_pr_workflow(content)
   fail_with("#{path} must not use PR comments") if content.match?(/gh\s+pr\s+comment|pull-requests:\s+write/)
   fail_with("#{path} must not upload SARIF") if content.include?('upload-sarif')
   fail_with("#{path} must not publish registry images") if content.match?(/docker\s+(login|push)|ghcr\.io/)
+  fail_with("#{path} must not configure a custom Buildx builder") if content.match?(/docker\/setup-buildx-action|docker\s+buildx\s+create/)
   fail_with("#{path} must not request OIDC") if content.match?(/id-token:\s+write/)
   fail_with("#{path} must not add signing or attestations") if content.match?(/cosign|sigstore|attestation|attestations:\s+write|provenance/)
   fail_with("#{path} must not use runner context in job-level env") if content.include?('ARTIFACT_STAGING_DIR: ${{ runner.temp }}')
+  fail_with("#{path} has a summary printf format beginning with -") if content.match?(/printf\s+'-/)
 end
 
 WORKFLOWS.each do |path, contract|

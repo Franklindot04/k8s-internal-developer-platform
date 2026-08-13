@@ -22,6 +22,7 @@ prepare_fixture() {
   mkdir -p "$TMP_DIR"
 
   printf 'synthetic archive bytes\n' >"$TMP_DIR/supply-chain-fixture.tar"
+  printf 'sha256:synthetic-local-image-id\n' >"$TMP_DIR/built-image-id.txt"
   printf 'sha256:synthetic-local-image-id\n' >"$TMP_DIR/loaded-image-id.txt"
   cp "$ROOT/tests/fixtures/supply-chain-policy/critical.json" "$TMP_DIR/vulnerabilities.json"
 
@@ -54,6 +55,7 @@ assert_policy_failure_retains_valid_evidence() {
     --vulnerabilities "$TMP_DIR/vulnerabilities.json" \
     --policy "$TMP_DIR/policy-result.json" \
     --versions-file "$VERSIONS_FILE" \
+    --built-docker-image-id "$(cat "$TMP_DIR/built-image-id.txt")" \
     --docker-image-id "$(cat "$TMP_DIR/loaded-image-id.txt")" \
     --syft-version "$syft_version" \
     --grype-version "$grype_version" \
