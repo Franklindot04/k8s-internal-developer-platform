@@ -1,0 +1,19 @@
+{
+  "matches": [
+    {
+      "vulnerability": {
+        "id": "CVE-0000-HIGH",
+        "severity": "High",
+        "fix": {
+          "versions": [
+            "1.0.1"
+          ]
+        }
+      },
+      "artifact": {
+        "name": "synthetic-high",
+        "version": "1.0.0"
+      }
+    }
+  ]
+}

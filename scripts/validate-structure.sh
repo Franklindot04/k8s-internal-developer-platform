@@ -75,6 +75,18 @@ required_paths=(
   scripts/helm/assert-golden-path-render.rb
   scripts/golden-path/lifecycle.sh
   scripts/supply-chain/fixture.sh
+  scripts/supply-chain/versions.env
+  scripts/supply-chain/install-evidence-tools.sh
+  scripts/supply-chain/evidence.sh
+  scripts/supply-chain/evaluate-vulnerabilities.rb
+  scripts/supply-chain/validate-evidence.rb
+  scripts/supply-chain/validate-evidence-tooling.rb
+  tests/fixtures/supply-chain-policy/no-findings.json
+  tests/fixtures/supply-chain-policy/high-only.json
+  tests/fixtures/supply-chain-policy/critical.json
+  tests/fixtures/supply-chain-policy/critical-unfixed.json
+  tests/fixtures/supply-chain-policy/unknown-only.json
+  tests/fixtures/supply-chain-policy/malformed.json
   tests/fixtures/supply-chain-fixture/README.md
   tests/fixtures/supply-chain-fixture/go.mod
   tests/fixtures/supply-chain-fixture/cmd/server/main.go
@@ -143,7 +155,7 @@ if grep -Eiq 'apt-get|apk |yum |dnf |microdnf|brew |pip install|npm install|go g
   missing=1
 fi
 
-if grep -Eiq 'docker (login|push)|packages:[[:space:]]*write|cosign|syft|grype|trivy|attestation|signing|admission|promotion|--provenance(=true|[[:space:]]+true)|--sbom(=true|[[:space:]]+true)' "$dockerfile" scripts/supply-chain/fixture.sh; then
+if grep -Eiq 'docker (login|push)|packages:[[:space:]]*write|cosign|trivy|attestation|signing|admission|promotion|--provenance(=true|[[:space:]]+true)|--sbom(=true|[[:space:]]+true)' "$dockerfile" scripts/supply-chain/fixture.sh; then
   printf '[error] supply-chain fixture must not introduce Stage 6C+ tooling or registry mutation\n' >&2
   missing=1
 fi

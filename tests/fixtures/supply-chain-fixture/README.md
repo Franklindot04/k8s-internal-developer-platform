@@ -32,6 +32,14 @@ Run the dynamic aggregate:
 make supply-chain-fixture-validate
 ```
 
+Stage 6C1 reuses this fixture as the representative build subject for local evidence tooling. That evidence path builds one Docker image archive, loads that exact archive for smoke proof, runs one Syft cataloging operation that emits CycloneDX JSON for portable review and Syft JSON for rich scanner-native inventory evidence, scans the exact Docker archive with Grype, and validates the evidence manifest:
+
+```sh
+make supply-chain-evidence
+```
+
 The local image tag is `idp/supply-chain-fixture:test`. It is a mutable local convenience tag, not a deployable identity. The local image ID reported by Docker is local image identity, not a registry digest, RepoDigest, or authoritative published digest.
 
-The fixture does not publish to a registry and intentionally contains no Stage 6C+ SBOM, vulnerability scanning, provenance, attestation, signing, admission, promotion, or automatic `PlatformService` update tooling.
+The Stage 6C1 archive SHA-256 is local verification identity for the exact archive bytes generated in that run. It is not a registry digest, published digest, Stage 5 deployable digest, or authoritative registry identity.
+
+The fixture does not publish to a registry and intentionally contains no PR workflow, provenance, attestation, signing, admission, promotion, or automatic `PlatformService` update tooling.

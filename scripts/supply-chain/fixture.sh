@@ -71,11 +71,19 @@ cleanup_smoke() {
 }
 
 smoke_test() {
+  local image_ref="${1:-$IMAGE_TAG}"
+  local allow_build="${2:-true}"
+
   require_docker
   require_tool curl
 
-  if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
-    image_build
+  if ! docker image inspect "$image_ref" >/dev/null 2>&1; then
+    if [ "$allow_build" = "true" ]; then
+      image_build
+    else
+      printf '[error] preloaded image missing for smoke proof: %s\n' "$image_ref" >&2
+      exit 1
+    fi
   fi
 
   local container_name="idp-supply-chain-fixture-smoke-$$"
@@ -86,7 +94,7 @@ smoke_test() {
     --name "$container_name" \
     --platform "$PLATFORM" \
     --publish 127.0.0.1::8080 \
-    "$IMAGE_TAG")"
+    "$image_ref")"
 
   local port=""
   SMOKE_RESPONSE_FILE="$(mktemp)"
@@ -146,7 +154,7 @@ validate() {
 }
 
 usage() {
-  printf 'Usage: %s {test|build|smoke|validate}\n' "$0" >&2
+  printf 'Usage: %s {test|build|smoke|smoke-image|validate}\n' "$0" >&2
 }
 
 case "${1:-}" in
@@ -158,6 +166,13 @@ case "${1:-}" in
     ;;
   smoke)
     smoke_test
+    ;;
+  smoke-image)
+    if [ -z "${2:-}" ]; then
+      usage
+      exit 2
+    fi
+    smoke_test "$2" false
     ;;
   validate)
     validate

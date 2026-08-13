@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-files = Dir.glob('**/*.md', File::FNM_DOTMATCH).reject { |path| path.start_with?('.git/') }
+files = Dir.glob('**/*.md', File::FNM_DOTMATCH).reject { |path| path.start_with?('.git/', '.tmp/') }
 failures = []
 
 files.each do |path|
