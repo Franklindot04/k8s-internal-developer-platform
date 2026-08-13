@@ -25,6 +25,9 @@ required_paths=(
   docs/adr/0008-use-opinionated-helm-golden-path.md
   docs/adr/0009-use-always-reporting-required-check-gates.md
   docs/adr/0010-adopt-platformservice-contract.md
+  docs/adr/0011-compile-platformservice-into-golden-path-values.md
+  docs/adr/0012-generate-platformservice-gitops-applications.md
+  docs/adr/0013-safely-generate-and-verify-platformservice-artifacts.md
   infra/kubernetes/kind/cluster.yaml
   infra/kubernetes/kind/versions.env
   infra/gitops/argocd/versions.env
@@ -47,7 +50,9 @@ required_paths=(
   tools/platformctl/src/platformctl/__init__.py
   tools/platformctl/src/platformctl/__main__.py
   tools/platformctl/src/platformctl/cli.py
+  tools/platformctl/src/platformctl/service_generation.py
   tools/platformctl/src/platformctl/validation.py
+  tools/platformctl/tests/test_service_generation.py
   tools/platformctl/tests/test_validation.py
   .github/workflows/validate.yml
   .github/workflows/local-kubernetes.yml
@@ -55,6 +60,7 @@ required_paths=(
   .github/workflows/golden-path-helm.yml
   scripts/verify-tools.sh
   scripts/validate.sh
+  scripts/validate-generated-structure.sh
   scripts/validate-structure.sh
   scripts/validate-markdown.rb
   scripts/validate-yaml.rb
@@ -63,6 +69,7 @@ required_paths=(
   scripts/gitops/argocd.sh
   scripts/ci/workflow-scope.sh
   scripts/ci/test-workflow-scope.sh
+  scripts/ci/test-generated-structure.sh
   scripts/validate-workflow-governance.rb
   scripts/helm/validate-golden-path.sh
   scripts/helm/assert-golden-path-render.rb
@@ -83,5 +90,7 @@ done
 if [ "$missing" -ne 0 ]; then
   exit 1
 fi
+
+bash scripts/validate-generated-structure.sh
 
 printf '[ok] repository structure contract files are present\n'
