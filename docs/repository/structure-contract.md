@@ -12,19 +12,24 @@ Stage 4 state: contains the Kind local cluster configuration and version contrac
 
 Owns reusable platform capabilities and shared contracts. Future contents may include the golden-path Helm chart, platform add-ons, shared values contracts, policy bundles, and observability integration.
 
-Stage 5A state: contains minimal GitOps-managed platform bootstrap state, the golden-path Helm chart, and the versioned self-service service contract schema. Add-ons, policies, observability, and service generation remain future-stage work.
+Stage 5 state: contains minimal GitOps-managed platform bootstrap state, the golden-path Helm chart, versioned self-service contract schema, platform-owned profile and GitOps policies, and the self-service AppProject boundary. Add-ons, observability, environment promotion, and supply-chain automation remain future-stage work.
 
 ## `services/`
 
-Owns reference workloads and generated demonstration workloads. Services in this directory should be deployable through the platform contract once the chart and generator exist.
+Owns service intent sources and platform-managed generated service artifacts.
 
-Stage 2 state: recovered service directories contain no working services.
+Stage 5 state: a service source of truth lives at `services/<service>/service.yaml`. Before generation, the source-only state is valid. After generation, `services/<service>/generated/` may contain exactly two platform-owned persistent artifacts:
+
+- `values.yaml`
+- `application.yaml`
+
+Unexpected persistent files under `generated/` are invalid. Generated artifacts are derived from the `PlatformService` source and must not become competing sources of truth.
 
 ## `tools/`
 
-Owns developer-facing and repository-support tooling. Future contents may include the service generator, template pack tests, and support utilities.
+Owns developer-facing and repository-support tooling. Future contents may include template pack tests, additional support utilities, and later interfaces over the self-service contract.
 
-Stage 5A state: repository and local Kubernetes lifecycle scripts live in `scripts/`, while the first repository-local developer tool foundation lives under `tools/platformctl/` for PlatformService validation. Generation is not implemented yet.
+Stage 5 state: repository and local Kubernetes lifecycle scripts live in `scripts/`, while repository-local developer self-service tooling lives under `tools/platformctl/`. `platformctl` validates `PlatformService` files, previews deterministic Helm values and Argo CD Applications, safely generates the canonical `values.yaml` and `application.yaml` artifact pair, and verifies generated drift without writing.
 
 ## `docs/`
 

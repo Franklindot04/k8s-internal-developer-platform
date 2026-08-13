@@ -31,7 +31,7 @@ Application teams remain responsible for service behavior, application tests, se
 
 ## Current Repository State
 
-The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, a reproducible Argo CD GitOps control plane for local reconciliation, and a reusable Helm golden-path chart for HTTP workloads. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, minimal Git-managed platform bootstrap state, golden-path chart validation, and a GitOps-deployed demo workload. It does not yet contain a Kyverno policy set, observability stack, service generator, environment promotion model, or application delivery workflow.
+The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, a reproducible Argo CD GitOps control plane for local reconciliation, a reusable Helm golden-path chart for HTTP workloads, and the completed Stage 5 developer self-service foundation. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, minimal Git-managed platform bootstrap state, golden-path chart validation, a GitOps-deployed demo workload, and `platformctl` support for `PlatformService` validation, read-only planning, safe repository generation, and read-only drift verification. It does not yet contain a Kyverno policy set, observability stack, environment promotion model, developer portal, application source delivery workflow, or Stage 6 software supply-chain automation.
 
 ## Target Architecture
 
@@ -40,7 +40,7 @@ The target architecture has four conceptual layers:
 - Repository control layer: branch strategy, pull requests, validation, ADRs, roadmap, and recovery controls.
 - Platform control plane: Kind for local Kubernetes, Argo CD for GitOps reconciliation, Kyverno for policy enforcement, and observability components.
 - Workload plane: namespaces, quotas, network boundaries, service accounts, Deployments, Services, ingress or Gateway integration, probes, resources, and telemetry.
-- Developer experience layer: service templates, generator inputs, metadata, CI generation, Helm values, GitOps registration, and documentation output.
+- Developer experience layer: `PlatformService` intent, platform-owned policy, deterministic Helm values, deterministic Argo CD Applications, controlled repository artifacts, future service templates, GitOps registration interfaces, and documentation output.
 
 ## Developer Responsibilities
 
@@ -66,7 +66,7 @@ Git is the source of truth for platform bootstrap state and the Stage 4 golden-p
 
 ## Developer Golden Path
 
-The golden-path Helm chart now provides the reusable workload contract that later developer self-service will target. The future generator will guide a developer from service creation through local validation, CI checks, GitOps registration, deployment, and observability. Generated services and the complete onboarding flow remain later-stage work.
+The golden-path Helm chart provides the reusable workload contract targeted by the Stage 5 self-service flow. A developer can author `services/<service>/service.yaml`, validate the `PlatformService` contract, preview deterministic Helm values and an Argo CD Application, safely generate `services/<service>/generated/values.yaml` and `services/<service>/generated/application.yaml`, and verify generated drift. Stage 5 ends at controlled repository artifacts; Git staging, commits, pushes, pull-request automation, automatic Argo registration, ApplicationSet/app-of-apps discovery, environment promotion, developer portal workflows, deployment automation, and observability remain later-stage work.
 
 ## Environment Model
 
