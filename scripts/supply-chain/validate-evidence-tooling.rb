@@ -78,8 +78,11 @@ fail_with('evidence script must scan the exact Docker archive') unless evidence_
 fail_with('evidence script must not scan CycloneDX SBOM') if evidence_script.include?('sbom:$(basename "$SBOM")')
 fail_with('evidence script must not use scanner SBOM as vulnerability authority') if evidence_script.include?('sbom:$(basename "$SCANNER_SBOM")')
 
-if Dir.glob('.github/workflows/*supply-chain*').any?
-  fail_with('Stage 6C1 must not add supply-chain workflow files')
+allowed_supply_chain_workflows = ['.github/workflows/supply-chain-pr.yml']
+supply_chain_workflows = Dir.glob('.github/workflows/*supply-chain*')
+unexpected_supply_chain_workflows = supply_chain_workflows - allowed_supply_chain_workflows
+if unexpected_supply_chain_workflows.any?
+  fail_with("unexpected supply-chain workflow file(s): #{unexpected_supply_chain_workflows.join(', ')}")
 end
 
 puts '[ok] supply-chain evidence tooling static validation passed'

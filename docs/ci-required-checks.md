@@ -22,6 +22,8 @@ The GitOps control plane depends on Kind. Changes to GitOps configuration, GitOp
 
 The golden-path Helm workflow depends on GitOps and Kind. Changes to the chart, Helm tooling, golden-path GitOps manifests, golden-path scripts, GitOps dependencies, Kind dependencies, Make targets, or shared scope logic require Helm chart and GitOps validation.
 
+The supply-chain PR workflow depends on the Stage 6C1 evidence engine and representative fixture. Changes to the supply-chain workflow, evidence scripts, policy fixtures, representative fixture, Make targets, `.gitignore`, supply-chain documentation, or shared workflow-governance logic require supply-chain PR execution.
+
 Ordinary unrelated documentation changes use the fast path: repository validation still runs, runtime-heavy execution jobs are skipped, and final gates report success.
 
 ## Current Checks
@@ -32,6 +34,8 @@ Current required `main` checks:
 - `Kind lifecycle validation`
 - `Argo CD reconciliation validation`
 - `Helm chart and GitOps validation`
+
+`Supply-chain PR validation` is implemented for Stage 6C2 review but is not yet required. It must remain non-required until relevant-path and irrelevant-path pull-request behavior are proven after merge.
 
 The Helm final gate was promoted after both governance paths were proven: relevant platform changes execute the appropriate runtime validation before final-gate success, and unrelated documentation changes intentionally skip expensive runtime validation while final gates still report success.
 

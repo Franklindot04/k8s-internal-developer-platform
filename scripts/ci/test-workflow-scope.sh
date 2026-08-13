@@ -25,7 +25,7 @@ assert_scope() {
   fi
 }
 
-unrelated_docs="docs/roadmap/implementation-roadmap.md"
+unrelated_docs="CONTRIBUTING.md"
 kind_change="infra/kubernetes/kind/cluster.yaml"
 gitops_change="infra/gitops/argocd/application.yaml"
 golden_path_change="platform/helm-charts/golden-path/values.yaml"
@@ -37,11 +37,20 @@ scope_change="scripts/ci/workflow-scope.sh"
 kind_workflow_change=".github/workflows/local-kubernetes.yml"
 gitops_workflow_change=".github/workflows/gitops-control-plane.yml"
 golden_path_workflow_change=".github/workflows/golden-path-helm.yml"
+supply_chain_fixture_source_change="tests/fixtures/supply-chain-fixture/cmd/server/main.go"
+supply_chain_fixture_dockerfile_change="tests/fixtures/supply-chain-fixture/Dockerfile"
+supply_chain_script_change="scripts/supply-chain/evidence.sh"
+supply_chain_policy_fixture_change="tests/fixtures/supply-chain-policy/critical.json"
+supply_chain_workflow_change=".github/workflows/supply-chain-pr.yml"
+supply_chain_doc_change="docs/supply-chain-architecture.md"
+workflow_governance_change="scripts/validate-workflow-governance.rb"
+makefile_change="Makefile"
 
 assert_scope "unrelated documentation" kind false "$unrelated_docs"
 assert_scope "unrelated documentation" gitops false "$unrelated_docs"
 assert_scope "unrelated documentation" golden-path false "$unrelated_docs"
 assert_scope "unrelated documentation" service-gitops false "$unrelated_docs"
+assert_scope "unrelated documentation" supply-chain-pr false "$unrelated_docs"
 
 assert_scope "kind foundation" kind true "$kind_change"
 assert_scope "kind foundation" gitops true "$kind_change"
@@ -97,5 +106,15 @@ assert_scope "service gitops workflow" kind false "$service_gitops_workflow_chan
 assert_scope "service gitops workflow" gitops false "$service_gitops_workflow_change"
 assert_scope "service gitops workflow" golden-path false "$service_gitops_workflow_change"
 assert_scope "service gitops workflow" service-gitops true "$service_gitops_workflow_change"
+
+assert_scope "supply-chain fixture source" supply-chain-pr true "$supply_chain_fixture_source_change"
+assert_scope "supply-chain fixture Dockerfile" supply-chain-pr true "$supply_chain_fixture_dockerfile_change"
+assert_scope "supply-chain script" supply-chain-pr true "$supply_chain_script_change"
+assert_scope "supply-chain policy fixture" supply-chain-pr true "$supply_chain_policy_fixture_change"
+assert_scope "supply-chain workflow" supply-chain-pr true "$supply_chain_workflow_change"
+assert_scope "shared Makefile" supply-chain-pr true "$makefile_change"
+assert_scope "shared scope classifier" supply-chain-pr true "$scope_change"
+assert_scope "workflow governance validator" supply-chain-pr true "$workflow_governance_change"
+assert_scope "supply-chain documentation" supply-chain-pr true "$supply_chain_doc_change"
 
 printf '[ok] workflow scope classifier tests passed\n'

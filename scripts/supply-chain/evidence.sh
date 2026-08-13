@@ -174,6 +174,39 @@ evaluate_policy() {
   ruby "$ROOT/scripts/supply-chain/evaluate-vulnerabilities.rb" "$VULNERABILITIES" "$POLICY_RESULT"
 }
 
+policy_result_records_blocking_failure() {
+  [ -f "$POLICY_RESULT" ] || fail "policy result missing after policy failure"
+
+  ruby -rjson -e '
+    path = ARGV.fetch(0)
+    data = JSON.parse(File.read(path))
+    abort("[error] policy result did not record FAIL") unless data["decision"] == "FAIL"
+    count = Integer(data.fetch("blocking_finding_count"))
+    abort("[error] policy result has no blocking findings") unless count.positive?
+    severities = data.fetch("blocking_severities")
+    abort("[error] policy result missing CRITICAL blocker") unless severities.include?("CRITICAL")
+  ' "$POLICY_RESULT"
+}
+
+evaluate_policy_for_retention() {
+  local status=0
+
+  set +e
+  evaluate_policy
+  status=$?
+  set -e
+
+  if [ "$status" -eq 0 ]; then
+    return 0
+  fi
+
+  if ! policy_result_records_blocking_failure; then
+    fail "policy failure did not produce a legitimate blocking result"
+  fi
+  printf '[ok] vulnerability policy failure recorded; continuing to finalize evidence\n'
+  return "$status"
+}
+
 generate_manifest() {
   syft_bin="$(tool_path syft)"
   grype_bin="$(tool_path grype)"
@@ -204,6 +237,8 @@ verify_evidence() {
 }
 
 all() {
+  local policy_status=0
+
   prepare_output
   install_tools
   source_test
@@ -212,9 +247,16 @@ all() {
   smoke_loaded_image
   generate_sbom
   scan_vulnerabilities
-  evaluate_policy
+  set +e
+  evaluate_policy_for_retention
+  policy_status=$?
+  set -e
   generate_manifest
   verify_evidence
+  if [ "$policy_status" -ne 0 ]; then
+    printf '[error] vulnerability policy failed after evidence validation\n' >&2
+    return "$policy_status"
+  fi
 }
 
 case "${1:-all}" in
