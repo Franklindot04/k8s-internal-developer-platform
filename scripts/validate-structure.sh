@@ -113,7 +113,7 @@ if ! grep -Eq '^ARG TARGETPLATFORM=linux/amd64$' "$dockerfile" || ! grep -Eq '^F
   missing=1
 fi
 
-if ! grep -Fqx 'RUN test "$TARGETPLATFORM" = "linux/amd64"' "$dockerfile"; then
+if ! grep -Fqx "RUN test \"\$TARGETPLATFORM\" = \"linux/amd64\"" "$dockerfile"; then
   printf '[error] supply-chain fixture must assert linux/amd64 as the canonical target platform\n' >&2
   missing=1
 fi
