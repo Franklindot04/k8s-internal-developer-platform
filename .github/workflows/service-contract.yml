@@ -35,5 +35,8 @@ jobs:
       - name: Run PlatformService GitOps tests
         run: make service-gitops-test
 
+      - name: Run PlatformService generation tests
+        run: make service-generation-test
+
       - name: Validate generated values against golden-path chart
         run: make service-values-helm-validate
