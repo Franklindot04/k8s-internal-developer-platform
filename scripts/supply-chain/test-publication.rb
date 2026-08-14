@@ -29,7 +29,8 @@ class PublicationContractTest < Minitest::Test
       workflow_run_id: RUN_ID,
       workflow_run_attempt: RUN_ATTEMPT,
       status: status,
-      repository: SupplyChainPublication::REPOSITORY,
+      candidate_repository: SupplyChainPublication::CANDIDATE_REPOSITORY,
+      authoritative_repository: SupplyChainPublication::AUTHORITATIVE_REPOSITORY,
       build_metadata_digest: digest,
       candidate_digest: digest,
       scan_target_digest: digest,
@@ -67,8 +68,10 @@ class PublicationContractTest < Minitest::Test
       handoff = SupplyChainPublication.build_handoff(validated, SupplyChainPublication.sha256_file(path))
 
       assert_equal('published', validated.fetch('publication').fetch('status'))
+      assert_equal(SupplyChainPublication::CANDIDATE_REPOSITORY, validated.fetch('candidate').fetch('repository'))
+      assert_equal(SupplyChainPublication::AUTHORITATIVE_REPOSITORY, validated.fetch('authoritative').fetch('repository'))
       assert_equal(DIGEST_A, handoff.fetch('image').fetch('digest'))
-      assert_equal(SupplyChainPublication::REPOSITORY, handoff.fetch('image').fetch('repository'))
+      assert_equal(SupplyChainPublication::AUTHORITATIVE_REPOSITORY, handoff.fetch('image').fetch('repository'))
       assert_equal(SOURCE, handoff.fetch('source').fetch('revision'))
       SupplyChainPublication.validate_handoff_object!(handoff, validated)
     end
@@ -77,6 +80,7 @@ class PublicationContractTest < Minitest::Test
   def test_candidate_fixture_validates_but_forbids_handoff
     input = base_input(status: 'candidate')
     input.delete(:authoritative_digest)
+    input.delete(:authoritative_repository)
     candidate = manifest(input)
 
     assert_equal('candidate', candidate.fetch('publication').fetch('status'))
@@ -89,6 +93,7 @@ class PublicationContractTest < Minitest::Test
   def test_policy_blocked_fixture_validates_without_authoritative_fields
     input = base_input(status: 'blocked', policy: 'FAIL')
     input.delete(:authoritative_digest)
+    input.delete(:authoritative_repository)
     blocked = manifest(input)
 
     assert_equal('blocked', blocked.fetch('publication').fetch('status'))
@@ -102,6 +107,7 @@ class PublicationContractTest < Minitest::Test
   def test_candidate_scan_digest_mismatch_fails
     input = base_input(status: 'candidate')
     input.delete(:authoritative_digest)
+    input.delete(:authoritative_repository)
     input[:scan_target_digest] = DIGEST_B
 
     assert_contract_error(/candidate digest continuity mismatch/) { manifest(input) }
@@ -162,27 +168,62 @@ class PublicationContractTest < Minitest::Test
 
   def test_unsafe_workflow_run_ids_reject
     ['', '0', '-1', 'run-1', '123:latest', "123\n", 'abc'].each do |value|
-      assert_contract_error(/workflow run ID/) { SupplyChainPublication.candidate_tag(SOURCE, value) }
+      assert_contract_error(/workflow run ID/) { SupplyChainPublication.candidate_tag(SOURCE, value, RUN_ATTEMPT) }
     end
+  end
+
+  def test_unsafe_workflow_run_attempts_reject
+    ['', '0', '-1', '1.1', '1e2', 'attempt-1', '123:latest', ' 1', "1\n", 'abc'].each do |value|
+      assert_contract_error(/workflow run attempt/) { SupplyChainPublication.candidate_tag(SOURCE, RUN_ID, value) }
+    end
+  end
+
+  def test_large_positive_workflow_run_attempt_is_valid
+    tag = SupplyChainPublication.candidate_tag(SOURCE, RUN_ID, '12345678901234567890')
+
+    assert_equal("candidate-#{SOURCE}-run-#{RUN_ID}-attempt-12345678901234567890", tag)
   end
 
   def test_reference_construction_never_infers_digest_from_tag
     assert_equal(
-      "#{SupplyChainPublication::REPOSITORY}:candidate-#{SOURCE}-run-#{RUN_ID}",
-      SupplyChainPublication.candidate_reference(source_revision: SOURCE, workflow_run_id: RUN_ID)
+      "#{SupplyChainPublication::CANDIDATE_REPOSITORY}:candidate-#{SOURCE}-run-#{RUN_ID}-attempt-#{RUN_ATTEMPT}",
+      SupplyChainPublication.candidate_reference(
+        source_revision: SOURCE,
+        workflow_run_id: RUN_ID,
+        workflow_run_attempt: RUN_ATTEMPT
+      )
     )
     assert_equal(
-      "#{SupplyChainPublication::REPOSITORY}@#{DIGEST_A}",
+      "#{SupplyChainPublication::CANDIDATE_REPOSITORY}@#{DIGEST_A}",
       SupplyChainPublication.candidate_digest_reference(DIGEST_A)
     )
     assert_equal(
-      "#{SupplyChainPublication::REPOSITORY}:sha-#{SOURCE}",
+      "#{SupplyChainPublication::AUTHORITATIVE_REPOSITORY}:sha-#{SOURCE}",
       SupplyChainPublication.authoritative_tag_reference(source_revision: SOURCE)
     )
     assert_equal(
-      "#{SupplyChainPublication::REPOSITORY}@#{DIGEST_A}",
+      "#{SupplyChainPublication::AUTHORITATIVE_REPOSITORY}@#{DIGEST_A}",
       SupplyChainPublication.authoritative_digest_reference(DIGEST_A)
     )
+  end
+
+  def test_candidate_attempt_collision_regression_is_prevented
+    attempt_one = SupplyChainPublication.candidate_tag(SOURCE, RUN_ID, '1')
+    attempt_two = SupplyChainPublication.candidate_tag(SOURCE, RUN_ID, '2')
+
+    ref_one = SupplyChainPublication.candidate_reference(
+      source_revision: SOURCE,
+      workflow_run_id: RUN_ID,
+      workflow_run_attempt: '1'
+    )
+    ref_two = SupplyChainPublication.candidate_reference(
+      source_revision: SOURCE,
+      workflow_run_id: RUN_ID,
+      workflow_run_attempt: '2'
+    )
+
+    refute_equal(attempt_one, attempt_two)
+    refute_equal(ref_one, ref_two)
   end
 
   def test_stage_5_image_contract_compatibility_shape
@@ -190,9 +231,71 @@ class PublicationContractTest < Minitest::Test
     handoff = SupplyChainPublication.build_handoff(published, sha('published'))
     image = handoff.fetch('image')
 
-    assert_equal(SupplyChainPublication::REPOSITORY, image.fetch('repository'))
+    assert_equal(SupplyChainPublication::AUTHORITATIVE_REPOSITORY, image.fetch('repository'))
     assert_match(/\Asha256:[a-f0-9]{64}\z/, image.fetch('digest'))
     assert(!image.fetch('repository').include?('@'))
     assert(!image.fetch('repository').split('/').last.include?(':'))
+  end
+
+  def test_handoff_rejects_candidate_repository
+    published = manifest(base_input)
+    handoff = SupplyChainPublication.build_handoff(published, sha('published'))
+    handoff['image']['repository'] = SupplyChainPublication::CANDIDATE_REPOSITORY
+
+    assert_contract_error(/handoff repository mismatch/) do
+      SupplyChainPublication.validate_handoff_object!(handoff, published)
+    end
+  end
+
+  def test_successful_publication_crosses_repositories_with_same_digest
+    published = manifest(base_input)
+    handoff = SupplyChainPublication.build_handoff(published, sha('published'))
+
+    refute_equal(published.fetch('candidate').fetch('repository'), published.fetch('authoritative').fetch('repository'))
+    assert_equal(SupplyChainPublication::CANDIDATE_REPOSITORY, published.fetch('candidate').fetch('repository'))
+    assert_equal(SupplyChainPublication::AUTHORITATIVE_REPOSITORY, published.fetch('authoritative').fetch('repository'))
+    assert_equal(published.fetch('candidate').fetch('digest'), published.fetch('authoritative').fetch('digest'))
+    assert_equal(SupplyChainPublication::AUTHORITATIVE_REPOSITORY, handoff.fetch('image').fetch('repository'))
+  end
+
+  def test_candidate_and_authoritative_repository_collapse_fails
+    input = base_input
+    input[:candidate_repository] = SupplyChainPublication::AUTHORITATIVE_REPOSITORY
+
+    assert_contract_error(/candidate repository/) { manifest(input) }
+  end
+
+  def test_candidate_state_using_authoritative_repository_fails
+    input = base_input(status: 'candidate')
+    input.delete(:authoritative_digest)
+    input.delete(:authoritative_repository)
+    input[:candidate_repository] = SupplyChainPublication::AUTHORITATIVE_REPOSITORY
+
+    assert_contract_error(/candidate repository/) { manifest(input) }
+  end
+
+  def test_published_state_using_candidate_as_authoritative_repository_fails
+    input = base_input
+    input[:authoritative_repository] = SupplyChainPublication::CANDIDATE_REPOSITORY
+
+    assert_contract_error(/authoritative repository/) { manifest(input) }
+  end
+
+  def test_candidate_tag_must_match_workflow_run_attempt_metadata
+    published = manifest(base_input)
+    published['candidate']['tag'] = SupplyChainPublication.candidate_tag(SOURCE, RUN_ID, '2')
+
+    assert_contract_error(/candidate tag mismatch/) do
+      SupplyChainPublication.validate_manifest_object!(published, versions_file: VERSIONS_FILE)
+    end
+  end
+
+  def test_ambiguous_registry_repository_field_fails
+    published = manifest(base_input)
+    published['registry']['repository'] = SupplyChainPublication::AUTHORITATIVE_REPOSITORY
+
+    assert_contract_error(/ambiguous/) do
+      SupplyChainPublication.validate_manifest_object!(published, versions_file: VERSIONS_FILE)
+    end
   end
 end
