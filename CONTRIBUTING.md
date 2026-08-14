@@ -66,7 +66,7 @@ make verify-tools
 make validate
 ```
 
-Also run relevant checks for the area being changed.
+Also run any checks relevant to the area being changed.
 
 For Kubernetes, Helm, GitOps, and platform changes, validate:
 
