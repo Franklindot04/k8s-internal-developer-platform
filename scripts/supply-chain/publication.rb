@@ -7,7 +7,8 @@ require 'fileutils'
 
 module SupplyChainPublication
   REGISTRY_HOST = 'ghcr.io'
-  REPOSITORY = 'ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture'
+  CANDIDATE_REPOSITORY = 'ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture-candidates'
+  AUTHORITATIVE_REPOSITORY = 'ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture'
   SOURCE_REPOSITORY = 'Franklindot04/k8s-internal-developer-platform'
   SOURCE_URL = 'https://github.com/Franklindot04/k8s-internal-developer-platform'
   TARGET_PLATFORM = 'linux/amd64'
@@ -63,41 +64,69 @@ module SupplyChainPublication
     value
   end
 
-  def validate_repository!(value)
-    fail_contract("publication repository must be #{REPOSITORY}") unless value == REPOSITORY
-    fail_contract('publication repository must not include an embedded digest') if value.include?('@')
-    fail_contract('publication repository must use GHCR') unless value.start_with?("#{REGISTRY_HOST}/")
+  def validate_registry_repository_shape!(value, role:)
+    fail_contract("#{role} repository must be a string") unless value.is_a?(String)
+    fail_contract("#{role} repository must not include an embedded digest") if value.include?('@')
+    fail_contract("#{role} repository must use GHCR") unless value.start_with?("#{REGISTRY_HOST}/")
 
     path = value.delete_prefix("#{REGISTRY_HOST}/")
-    fail_contract('publication repository path must be lowercase') unless path == path.downcase
-    fail_contract('publication repository path must not include empty segments') if path.split('/').any?(&:empty?)
-    fail_contract('publication repository path must not include a tag suffix') if path.split('/').last.include?(':')
+    fail_contract("#{role} repository path must be lowercase") unless path == path.downcase
+    fail_contract("#{role} repository path must not include empty segments") if path.split('/').any?(&:empty?)
+    fail_contract("#{role} repository path must not include a tag suffix") if path.split('/').last.include?(':')
 
     value
+  end
+
+  def validate_candidate_repository!(value)
+    validate_registry_repository_shape!(value, role: 'candidate')
+    fail_contract("candidate repository must be #{CANDIDATE_REPOSITORY}") unless value == CANDIDATE_REPOSITORY
+    fail_contract('candidate repository must differ from authoritative repository') if value == AUTHORITATIVE_REPOSITORY
+
+    value
+  end
+
+  def validate_authoritative_repository!(value)
+    validate_registry_repository_shape!(value, role: 'authoritative')
+    fail_contract("authoritative repository must be #{AUTHORITATIVE_REPOSITORY}") unless value == AUTHORITATIVE_REPOSITORY
+    fail_contract('authoritative repository must differ from candidate repository') if value == CANDIDATE_REPOSITORY
+
+    value
+  end
+
+  def validate_repository_separation!(candidate_repository:, authoritative_repository:)
+    candidate = validate_candidate_repository!(candidate_repository)
+    authoritative = validate_authoritative_repository!(authoritative_repository)
+    fail_contract('candidate and authoritative repositories must be different') if candidate == authoritative
+
+    [candidate, authoritative]
   end
 
   def authoritative_tag(source_revision)
     "sha-#{validate_source_revision!(source_revision)}"
   end
 
-  def candidate_tag(source_revision, workflow_run_id)
-    "candidate-#{validate_source_revision!(source_revision)}-run-#{validate_workflow_run_id!(workflow_run_id)}"
+  def candidate_tag(source_revision, workflow_run_id, workflow_run_attempt)
+    source = validate_source_revision!(source_revision)
+    run_id = validate_workflow_run_id!(workflow_run_id)
+    run_attempt = validate_workflow_run_attempt!(workflow_run_attempt)
+
+    "candidate-#{source}-run-#{run_id}-attempt-#{run_attempt}"
   end
 
-  def candidate_reference(source_revision:, workflow_run_id:, repository: REPOSITORY)
-    "#{validate_repository!(repository)}:#{candidate_tag(source_revision, workflow_run_id)}"
+  def candidate_reference(source_revision:, workflow_run_id:, workflow_run_attempt:, repository: CANDIDATE_REPOSITORY)
+    "#{validate_candidate_repository!(repository)}:#{candidate_tag(source_revision, workflow_run_id, workflow_run_attempt)}"
   end
 
-  def candidate_digest_reference(digest, repository: REPOSITORY)
-    "#{validate_repository!(repository)}@#{validate_digest!(digest)}"
+  def candidate_digest_reference(digest, repository: CANDIDATE_REPOSITORY)
+    "#{validate_candidate_repository!(repository)}@#{validate_digest!(digest)}"
   end
 
-  def authoritative_tag_reference(source_revision:, repository: REPOSITORY)
-    "#{validate_repository!(repository)}:#{authoritative_tag(source_revision)}"
+  def authoritative_tag_reference(source_revision:, repository: AUTHORITATIVE_REPOSITORY)
+    "#{validate_authoritative_repository!(repository)}:#{authoritative_tag(source_revision)}"
   end
 
-  def authoritative_digest_reference(digest, repository: REPOSITORY)
-    "#{validate_repository!(repository)}@#{validate_digest!(digest)}"
+  def authoritative_digest_reference(digest, repository: AUTHORITATIVE_REPOSITORY)
+    "#{validate_authoritative_repository!(repository)}@#{validate_digest!(digest)}"
   end
 
   def evaluate_transition(existing_authoritative_digest:, attempted_digest:)
@@ -179,7 +208,7 @@ module SupplyChainPublication
     source_revision = validate_source_revision!(input.fetch(:source_revision))
     workflow_run_id = validate_workflow_run_id!(input.fetch(:workflow_run_id))
     workflow_run_attempt = validate_workflow_run_attempt!(input.fetch(:workflow_run_attempt))
-    repository = validate_repository!(input.fetch(:repository, REPOSITORY))
+    candidate_repository = validate_candidate_repository!(input.fetch(:candidate_repository, CANDIDATE_REPOSITORY))
     status = input.fetch(:status)
     fail_contract('invalid publication status') unless ALLOWED_STATUSES.include?(status)
 
@@ -203,14 +232,14 @@ module SupplyChainPublication
         'platform' => TARGET_PLATFORM
       },
       'registry' => {
-        'host' => REGISTRY_HOST,
-        'repository' => repository
+        'host' => REGISTRY_HOST
       },
       'build' => {
         'metadata_digest' => build_digest
       },
       'candidate' => {
-        'tag' => candidate_tag(source_revision, workflow_run_id),
+        'repository' => candidate_repository,
+        'tag' => candidate_tag(source_revision, workflow_run_id, workflow_run_attempt),
         'digest' => candidate_digest
       },
       'verification' => {
@@ -242,12 +271,18 @@ module SupplyChainPublication
     }
 
     if %w[published existing].include?(status)
+      authoritative_repository = validate_authoritative_repository!(input.fetch(:authoritative_repository, AUTHORITATIVE_REPOSITORY))
+      validate_repository_separation!(
+        candidate_repository: candidate_repository,
+        authoritative_repository: authoritative_repository
+      )
       authoritative_digest = validate_digest!(input.fetch(:authoritative_digest))
       manifest['authoritative'] = {
+        'repository' => authoritative_repository,
         'tag' => authoritative_tag(source_revision),
         'digest' => authoritative_digest
       }
-    elsif input.key?(:authoritative_digest) || input.key?(:authoritative_tag)
+    elsif input.key?(:authoritative_digest) || input.key?(:authoritative_tag) || input.key?(:authoritative_repository)
       fail_contract('candidate or blocked publication must not include authoritative fields')
     end
 
@@ -290,12 +325,18 @@ module SupplyChainPublication
 
     source_revision = validate_source_revision!(source.fetch('revision'))
     fail_contract('source repository mismatch') unless source.fetch('repository') == SOURCE_REPOSITORY
-    validate_workflow_run_id!(workflow.fetch('run_id'))
-    validate_workflow_run_attempt!(workflow.fetch('run_attempt'))
+    workflow_run_id = validate_workflow_run_id!(workflow.fetch('run_id'))
+    workflow_run_attempt = validate_workflow_run_attempt!(workflow.fetch('run_attempt'))
     fail_contract('target platform mismatch') unless manifest.fetch('target').fetch('platform') == TARGET_PLATFORM
     fail_contract('registry host mismatch') unless registry.fetch('host') == REGISTRY_HOST
-    validate_repository!(registry.fetch('repository'))
-    fail_contract('candidate tag mismatch') unless candidate.fetch('tag') == candidate_tag(source_revision, workflow.fetch('run_id'))
+    fail_contract('registry repository is ambiguous; use candidate.repository and authoritative.repository') if registry.key?('repository')
+
+    candidate_repository = validate_candidate_repository!(candidate.fetch('repository'))
+    fail_contract('candidate tag mismatch') unless candidate.fetch('tag') == candidate_tag(
+      source_revision,
+      workflow_run_id,
+      workflow_run_attempt
+    )
 
     build_digest = validate_digest!(build.fetch('metadata_digest'))
     candidate_digest = validate_digest!(candidate.fetch('digest'))
@@ -334,6 +375,11 @@ module SupplyChainPublication
     when 'published', 'existing'
       fail_contract('published state requires policy PASS') unless decision == PASS
       authoritative = manifest.fetch('authoritative')
+      authoritative_repository = validate_authoritative_repository!(authoritative.fetch('repository'))
+      validate_repository_separation!(
+        candidate_repository: candidate_repository,
+        authoritative_repository: authoritative_repository
+      )
       fail_contract('authoritative tag mismatch') unless authoritative.fetch('tag') == authoritative_tag(source_revision)
       authoritative_digest = validate_digest!(authoritative.fetch('digest'))
       validate_complete_continuity!(
@@ -360,7 +406,7 @@ module SupplyChainPublication
       'apiVersion' => HANDOFF_API_VERSION,
       'kind' => HANDOFF_KIND,
       'image' => {
-        'repository' => REPOSITORY,
+        'repository' => AUTHORITATIVE_REPOSITORY,
         'digest' => digest
       },
       'source' => {
@@ -380,7 +426,7 @@ module SupplyChainPublication
 
     fail_contract('invalid handoff apiVersion') unless handoff.fetch('apiVersion') == HANDOFF_API_VERSION
     fail_contract('invalid handoff kind') unless handoff.fetch('kind') == HANDOFF_KIND
-    fail_contract('handoff repository mismatch') unless handoff.fetch('image').fetch('repository') == REPOSITORY
+    fail_contract('handoff repository mismatch') unless handoff.fetch('image').fetch('repository') == AUTHORITATIVE_REPOSITORY
     digest = validate_digest!(handoff.fetch('image').fetch('digest'))
     fail_contract('handoff digest mismatch') unless digest == manifest.fetch('authoritative').fetch('digest')
     fail_contract('handoff source revision mismatch') unless handoff.fetch('source').fetch('revision') == manifest.fetch('source').fetch('revision')

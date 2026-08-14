@@ -96,12 +96,16 @@ publication_contract_files.each do |path|
 end
 
 publication_contract = File.read('scripts/supply-chain/publication.rb')
-fail_with('publication contract must lock the expected GHCR repository') unless publication_contract.include?('ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture')
+fail_with('publication contract must lock the candidate GHCR repository') unless publication_contract.include?('ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture-candidates')
+fail_with('publication contract must lock the authoritative GHCR repository') unless publication_contract.include?('ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture')
+fail_with('publication contract must name candidate and authoritative repositories separately') unless publication_contract.include?('CANDIDATE_REPOSITORY') && publication_contract.include?('AUTHORITATIVE_REPOSITORY')
+fail_with('publication contract must validate repository separation') unless publication_contract.include?('validate_repository_separation!')
 fail_with('publication contract must validate source revision') unless publication_contract.include?('validate_source_revision!')
 fail_with('publication contract must validate registry digests') unless publication_contract.include?('validate_digest!')
-fail_with('publication contract must construct candidate tags') unless publication_contract.include?('candidate-')
+fail_with('publication contract must construct attempt-aware candidate tags') unless publication_contract.include?('candidate-') && publication_contract.include?('-attempt-')
 fail_with('publication contract must construct authoritative source tags') unless publication_contract.include?('sha-')
 fail_with('publication contract must model rerun mismatch') unless publication_contract.include?('RERUN_EXISTING_MISMATCH')
+fail_with('publication contract must keep handoff authoritative-only') unless publication_contract.include?("handoff.fetch('image').fetch('repository') == AUTHORITATIVE_REPOSITORY")
 fail_with('publication contract must not create a trusted workflow') if File.file?('.github/workflows/trusted-image-publication.yml')
 
 evidence_script = File.read('scripts/supply-chain/evidence.sh')
