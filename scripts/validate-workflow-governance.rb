@@ -108,6 +108,55 @@ def assert_supply_chain_pr_workflow(content)
   fail_with("#{path} has a summary printf format beginning with -") if content.match?(/printf\s+'-/)
 end
 
+def assert_trusted_publication_workflow
+  path = '.github/workflows/trusted-image-publication.yml'
+  fail_with("#{path} is missing") unless File.file?(path)
+
+  content = File.read(path)
+  fail_with("#{path} must not define pull_request trigger") if content.match?(/^  pull_request:\s*$/)
+  fail_with("#{path} must not define pull_request_target trigger") if content.include?('pull_request_target')
+  fail_with("#{path} must not define workflow_dispatch trigger") if content.match?(/^  workflow_dispatch:\s*$/)
+  fail_with("#{path} must not define workflow_run trigger") if content.match?(/^  workflow_run:\s*$/)
+  fail_with("#{path} must not define schedule trigger") if content.match?(/^  schedule:\s*$/)
+  fail_with("#{path} must trigger on push") unless content.match?(/^  push:\s*$/)
+  fail_with("#{path} must trigger only main branch pushes") unless content.match?(/branches:\n\s+- main/)
+  fail_with("#{path} must use contents read baseline") unless content.match?(/permissions:\n\s+contents:\s+read/)
+  assert_immutable_action_pins(path, content)
+  fail_with("#{path} is missing immutable checkout pin") unless content.include?('actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1')
+  fail_with("#{path} is missing immutable upload-artifact pin") unless content.include?('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
+  fail_with("#{path} must classify trusted publication scope") unless content.include?('scripts/ci/workflow-scope.sh trusted-publication')
+  fail_with("#{path} must not use workflow-level paths filtering") if content.match?(/^\s+paths:\s*$/)
+  fail_with("#{path} must use ubuntu-24.04") unless content.scan(/runs-on:\s+ubuntu-24\.04/).length >= 3
+  fail_with("#{path} must use publication timeout") unless content.include?('timeout-minutes: 30')
+  fail_with("#{path} must use trusted publication concurrency group") unless content.match?(/concurrency:\n\s+group:\s+trusted-image-publication/)
+  fail_with("#{path} must not cancel publication runs") if content.include?('cancel-in-progress')
+  fail_with("#{path} must not request OIDC") if content.match?(/id-token:\s+write/)
+  fail_with("#{path} must not request attestations") if content.match?(/attestations:\s+write/)
+  fail_with("#{path} must not add signing") if content.match?(/cosign|sigstore/)
+  fail_with("#{path} must not use PAT secrets") if content.match?(/PAT|personal_access_token|PERSONAL_ACCESS_TOKEN|REGISTRY_PASSWORD/)
+  fail_with("#{path} must use GITHUB_TOKEN only") unless content.include?('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}')
+  fail_with("#{path} must not grant contents write") if content.match?(/contents:\s+write/)
+  fail_with("#{path} must not grant pull request write") if content.match?(/pull-requests:\s+write/)
+  fail_with("#{path} must not grant checks write") if content.match?(/checks:\s+write/)
+  fail_with("#{path} must not grant statuses write") if content.match?(/statuses:\s+write/)
+  fail_with("#{path} must not grant security events write") if content.match?(/security-events:\s+write/)
+  fail_with("#{path} must grant packages write exactly once") unless content.scan(/packages:\s+write/).length == 1
+
+  scope_block = content[/  scope:\n.*?\n\n  trusted-publication:/m]
+  publication_block = content[/  trusted-publication:\n.*?\n\n  final-report:/m]
+  final_block = content[/  final-report:\n.*\z/m]
+  fail_with("#{path} missing scope job") unless scope_block
+  fail_with("#{path} missing publication job") unless publication_block
+  fail_with("#{path} missing final report job") unless final_block
+  fail_with("#{path} scope job must not receive packages write") if scope_block.include?('packages: write')
+  fail_with("#{path} final job must not receive packages write") if final_block.include?('packages: write')
+  fail_with("#{path} publication job must receive packages write") unless publication_block.include?("packages: write")
+  fail_with("#{path} publication job must run only when trusted-publication scope is true") unless publication_block.include?("needs.scope.outputs.trusted-publication == 'true'")
+  fail_with("#{path} final report must use if always") unless final_block.include?('if: ${{ always() }}')
+  fail_with("#{path} must not upload broad temporary state") if content.include?('$RUNNER_TEMP/**') || content.include?('/tmp/**')
+  fail_with("#{path} must not upload Docker archives") if content.match?(/\.tar\b|supply-chain-fixture\.tar/)
+end
+
 WORKFLOWS.each do |path, contract|
   content = File.read(path)
 
@@ -133,6 +182,7 @@ WORKFLOWS.each do |path, contract|
 end
 
 assert_supply_chain_pr_workflow(File.read('.github/workflows/supply-chain-pr.yml'))
+assert_trusted_publication_workflow if File.file?('.github/workflows/trusted-image-publication.yml')
 
 repository_validation = File.read('.github/workflows/validate.yml')
 fail_with('Repository Validation must keep required gate name') unless repository_validation.match?(quoted_name_pattern('Validate repository baseline'))

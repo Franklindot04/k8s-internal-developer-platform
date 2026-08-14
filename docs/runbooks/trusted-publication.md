@@ -5,11 +5,11 @@ Stage 6D trusted publication produces an authoritative OCI registry digest for t
 ## Current Status
 
 Stage 6D1 is complete / merged and implements the local publication engine, contracts, validators, and tests.
-It does not authenticate to GHCR, publish an image, create a package, change package visibility, or add the trusted publication workflow.
+It does not authenticate to GHCR, publish an image, create a package, or change package visibility.
 
-Trusted publication boundary hardening is implemented for review.
+Trusted publication boundary hardening is complete / merged.
 
-Stage 6D2 will add the protected-main GHCR workflow and first controlled live publication.
+Stage 6D2 is implemented for review. It adds the protected-main GHCR workflow and publication runtime, but the first live publication is not yet proven because the workflow must run only after protected merge to `main`.
 
 ## Publication Contract
 
@@ -27,7 +27,7 @@ ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture
 
 The candidate repository is non-authoritative quarantine for unverified, verified-but-unpromoted, policy-blocked, and failed-attempt forensic candidates.
 The authoritative repository is the only repository eligible for the Stage 5 image handoff.
-These package names are contracts only until Stage 6D2 performs the first live publication; the runbook does not claim either package exists yet.
+These package names remain contracts until protected merge triggers the first live publication; the runbook does not claim either package exists yet.
 
 The representative artifact is a test and supply-chain demonstration artifact.
 It is not the platform control plane, developer portal, or production workload.
@@ -118,17 +118,17 @@ Public GHCR visibility is recommended for the representative fixture because Sta
 The candidate quarantine package must remain private.
 The authoritative package is expected to be created private initially, then made public only after successful publication, package linkage audit, digest equality proof, and explicit governance approval.
 Under the current GHCR visibility model, making the authoritative package public is a deliberate irreversible action.
-Visibility is not changed in Stage 6D1 and requires explicit Stage 6D2 governance before any mutation.
+Visibility is not changed by this implementation. Public visibility remains a later explicit governance operation after private publication evidence is reviewed.
 
-## Future Stage 6D2 Live Proof
+## Stage 6D2 Live Proof Pending
 
-The future protected-main workflow must authenticate with `GITHUB_TOKEN`, push candidates only to the candidate quarantine repository, verify the candidate digest, run SBOM and vulnerability policy on the exact candidate artifact, and promote only a policy-approved digest to the authoritative repository.
+The protected-main workflow authenticates with `GITHUB_TOKEN`, pushes candidates only to the candidate quarantine repository, verifies the candidate digest, runs SBOM and vulnerability policy on the exact candidate artifact, and promotes only a policy-approved digest to the authoritative repository.
 
 The first live candidate publication must prove the candidate package exists, is linked to this repository, and remains private.
 If the candidate package is not private, publication must stop before authoritative promotion.
 
 The first authoritative publication must prove the authoritative package appears only after policy pass, is linked to this repository, and resolves to the same digest as the verified candidate before any handoff is emitted.
-Promotion remains abstract until Stage 6D2 proves registry behavior, but the required boundary is:
+Promotion remains unproven until protected merge proves registry behavior, but the required boundary is:
 
 ```text
 candidate_repository@verified_digest
@@ -137,8 +137,9 @@ candidate_repository@verified_digest
 -> authoritative digest == candidate digest
 ```
 
-Publication runs must be serialized.
-The future workflow must not use cancel-in-progress behavior for registry mutation, and queueing must preserve pending relevant main publications.
+Publication runs use one trusted publication concurrency group.
+The workflow does not use cancel-in-progress behavior for registry mutation.
+The workflow does not claim strict commit-order guarantees; source-SHA-scoped tags and digest verification keep independent main publications from overwriting one another.
 
 ## Boundaries
 
