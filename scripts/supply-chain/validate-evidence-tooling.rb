@@ -73,6 +73,9 @@ publication_contract_files = [
   'scripts/supply-chain/validate-publication.rb'
 ]
 scan_paths.reject! { |path| publication_contract_files.include?(path) }
+trusted_publication_runtime = 'scripts/supply-chain/trusted-publication.sh'
+scan_paths.reject! { |path| path == trusted_publication_runtime }
+scan_paths.reject! { |path| path == 'scripts/supply-chain/test-trusted-publication-workflow.rb' }
 scan_paths.each do |path|
   content = File.readlines(path).reject { |line| line.start_with?('#!') }.join
   FORBIDDEN_PATTERNS.each do |pattern, description|
@@ -106,7 +109,32 @@ fail_with('publication contract must construct attempt-aware candidate tags') un
 fail_with('publication contract must construct authoritative source tags') unless publication_contract.include?('sha-')
 fail_with('publication contract must model rerun mismatch') unless publication_contract.include?('RERUN_EXISTING_MISMATCH')
 fail_with('publication contract must keep handoff authoritative-only') unless publication_contract.include?("handoff.fetch('image').fetch('repository') == AUTHORITATIVE_REPOSITORY")
-fail_with('publication contract must not create a trusted workflow') if File.file?('.github/workflows/trusted-image-publication.yml')
+if File.file?('.github/workflows/trusted-image-publication.yml')
+  workflow = File.read('.github/workflows/trusted-image-publication.yml')
+  fail_with('trusted publication workflow must be push-to-main only') unless workflow.include?("push:") && workflow.include?("- main")
+  fail_with('trusted publication workflow must not run on pull_request') if workflow.match?(/^\s+pull_request:/)
+  fail_with('trusted publication workflow must not use workflow_dispatch initially') if workflow.match?(/^\s+workflow_dispatch:/)
+end
+
+if File.file?(trusted_publication_runtime)
+  runtime = File.read(trusted_publication_runtime)
+  fail_with('trusted publication runtime must use strict shell mode') unless runtime.include?('set -Eeuo pipefail')
+  fail_with('trusted publication runtime must use GITHUB_TOKEN') unless runtime.include?('GITHUB_TOKEN')
+  fail_with('trusted publication runtime must not mention PAT') if runtime.match?(/\bPAT\b|personal_access_token|PERSONAL_ACCESS_TOKEN|GHCR_PAT|REGISTRY_PAT/)
+  fail_with('trusted publication runtime must use docker login password-stdin') unless runtime.include?('--password-stdin')
+  fail_with('trusted publication runtime must logout from GHCR') unless runtime.include?('docker logout "$REGISTRY_HOST"')
+  fail_with('trusted publication runtime must isolate Docker config') unless runtime.include?('DOCKER_CONFIG')
+  fail_with('trusted publication runtime must verify candidate package privacy') unless runtime.include?('verify_package_metadata "$CANDIDATE_PACKAGE_NAME" "private" "candidate"')
+  fail_with('trusted publication runtime must verify authoritative package privacy') unless runtime.include?('verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "private" "authoritative"')
+  fail_with('trusted publication runtime must use attempt-aware candidate tags') unless runtime.include?('candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT"')
+  fail_with('trusted publication runtime must not use latest tags') if runtime.match?(/:latest|latest/)
+  fail_with('trusted publication runtime must not mutate package visibility') if runtime.match?(/visibility.*(PATCH|mutation|update)|change visibility/i)
+  fail_with('trusted publication runtime must not delete packages') if runtime.match?(/curl\s+.*-X\s+DELETE|gh api .*--method DELETE|delete package/i)
+  fail_with('trusted publication runtime must not use eval') if runtime.match?(/\beval\b/)
+  fail_with('trusted publication runtime must not request signing') if runtime.match?(/cosign|sigstore/)
+  fail_with('trusted publication runtime must keep BuildKit provenance disabled') unless runtime.include?('--provenance=false')
+  fail_with('trusted publication runtime must keep BuildKit SBOM disabled') unless runtime.include?('--sbom=false')
+end
 
 evidence_script = File.read('scripts/supply-chain/evidence.sh')
 fixture_dockerfile = File.read('tests/fixtures/supply-chain-fixture/Dockerfile')

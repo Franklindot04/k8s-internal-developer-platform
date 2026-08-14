@@ -1,0 +1,234 @@
+name: Trusted image publication
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    name: Trusted publication scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      trusted-publication: ${{ steps.scope.outputs.trusted-publication }}
+    steps:
+      # actions/checkout v7.0.1
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Classify trusted publication scope
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed_paths="$RUNNER_TEMP/trusted-publication-changed-paths.txt"
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            git show --format='' --name-only "${{ github.sha }}" >"$changed_paths"
+          else
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" >"$changed_paths"
+          fi
+          relevant="$(bash scripts/ci/workflow-scope.sh trusted-publication "$changed_paths")"
+          printf 'trusted-publication=%s\n' "$relevant" >>"$GITHUB_OUTPUT"
+          {
+            printf '### Trusted publication scope\n'
+            printf -- '- trusted-publication: `%s`\n' "$relevant"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  trusted-publication:
+    name: Trusted image publication
+    needs:
+      - scope
+    if: ${{ needs.scope.outputs.trusted-publication == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: trusted-image-publication
+      queue: max
+    outputs:
+      status: ${{ steps.publish.outputs.status }}
+      mode: ${{ steps.publish.outputs.mode }}
+      artifact-name: ${{ steps.publish.outputs.artifact-name }}
+      candidate-repository: ${{ steps.publish.outputs.candidate-repository }}
+      candidate-tag: ${{ steps.publish.outputs.candidate-tag }}
+      candidate-digest: ${{ steps.publish.outputs.candidate-digest }}
+      candidate-visibility: ${{ steps.publish.outputs.candidate-visibility }}
+      policy-decision: ${{ steps.publish.outputs.policy-decision }}
+      authoritative-repository: ${{ steps.publish.outputs.authoritative-repository }}
+      authoritative-tag: ${{ steps.publish.outputs.authoritative-tag }}
+      authoritative-digest: ${{ steps.publish.outputs.authoritative-digest }}
+      authoritative-visibility: ${{ steps.publish.outputs.authoritative-visibility }}
+    steps:
+      # actions/checkout v7.0.1
+      - name: Check out trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Run trusted publication runtime
+        id: publish
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          work_dir="$RUNNER_TEMP/trusted-publication"
+          result_file="$work_dir/result.env"
+          mkdir -p "$work_dir"
+
+          set +e
+          TRUSTED_PUBLICATION_WORK_DIR="$work_dir" \
+            TRUSTED_PUBLICATION_RESULT_FILE="$result_file" \
+            bash scripts/supply-chain/trusted-publication.sh publish
+          publication_exit="$?"
+          set -e
+
+          if [ -f "$result_file" ]; then
+            # shellcheck disable=SC1090
+            . "$result_file"
+          else
+            status="failure"
+            mode="unknown"
+            evidence_upload_allowed="false"
+            artifact_name=""
+            candidate_repository=""
+            candidate_tag=""
+            candidate_digest=""
+            candidate_visibility=""
+            policy_decision=""
+            authoritative_repository=""
+            authoritative_tag=""
+            authoritative_digest=""
+            authoritative_visibility=""
+          fi
+
+          {
+            printf 'status=%s\n' "$status"
+            printf 'mode=%s\n' "$mode"
+            printf 'artifact-name=%s\n' "$artifact_name"
+            printf 'candidate-repository=%s\n' "$candidate_repository"
+            printf 'candidate-tag=%s\n' "$candidate_tag"
+            printf 'candidate-digest=%s\n' "$candidate_digest"
+            printf 'candidate-visibility=%s\n' "$candidate_visibility"
+            printf 'policy-decision=%s\n' "$policy_decision"
+            printf 'authoritative-repository=%s\n' "$authoritative_repository"
+            printf 'authoritative-tag=%s\n' "$authoritative_tag"
+            printf 'authoritative-digest=%s\n' "$authoritative_digest"
+            printf 'authoritative-visibility=%s\n' "$authoritative_visibility"
+            printf 'evidence-upload-allowed=%s\n' "$evidence_upload_allowed"
+            printf 'artifact-path=%s\n' "$work_dir/artifact"
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            printf '### Trusted publication\n'
+            printf -- '- source revision: `%s`\n' "${GITHUB_SHA}"
+            printf -- '- publication mode: `%s`\n' "$mode"
+            printf -- '- candidate repository: `%s`\n' "$candidate_repository"
+            printf -- '- candidate tag: `%s`\n' "$candidate_tag"
+            printf -- '- candidate digest: `%s`\n' "$candidate_digest"
+            printf -- '- candidate privacy: `%s`\n' "$candidate_visibility"
+            printf -- '- policy result: `%s`\n' "$policy_decision"
+            printf -- '- authoritative repository: `%s`\n' "$authoritative_repository"
+            printf -- '- authoritative tag: `%s`\n' "$authoritative_tag"
+            printf -- '- authoritative digest: `%s`\n' "$authoritative_digest"
+            printf -- '- authoritative visibility: `%s`\n' "$authoritative_visibility"
+            printf -- '- evidence artifact: `%s`\n' "$artifact_name"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          exit "$publication_exit"
+
+      # actions/upload-artifact v7.0.1
+      - name: Upload successful trusted publication evidence
+        if: ${{ always() && steps.publish.outputs.evidence-upload-allowed == 'true' && steps.publish.outputs.status == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ steps.publish.outputs.artifact-name }}
+          path: |
+            ${{ steps.publish.outputs.artifact-path }}/publication-evidence.json
+            ${{ steps.publish.outputs.artifact-path }}/publication-evidence.json.sha256
+            ${{ steps.publish.outputs.artifact-path }}/image-reference.json
+            ${{ steps.publish.outputs.artifact-path }}/sbom.cdx.json
+            ${{ steps.publish.outputs.artifact-path }}/sbom.syft.json
+            ${{ steps.publish.outputs.artifact-path }}/vulnerabilities.json
+            ${{ steps.publish.outputs.artifact-path }}/policy-result.json
+            ${{ steps.publish.outputs.artifact-path }}/runtime-proof.json
+            ${{ steps.publish.outputs.artifact-path }}/build-metadata.json
+            ${{ steps.publish.outputs.artifact-path }}/candidate-manifest.json
+            ${{ steps.publish.outputs.artifact-path }}/authoritative-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+      # actions/upload-artifact v7.0.1
+      - name: Upload failed candidate evidence
+        if: ${{ always() && steps.publish.outputs.evidence-upload-allowed == 'true' && steps.publish.outputs.status != 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ steps.publish.outputs.artifact-name }}
+          path: |
+            ${{ steps.publish.outputs.artifact-path }}/publication-evidence.json
+            ${{ steps.publish.outputs.artifact-path }}/publication-evidence.json.sha256
+            ${{ steps.publish.outputs.artifact-path }}/sbom.cdx.json
+            ${{ steps.publish.outputs.artifact-path }}/sbom.syft.json
+            ${{ steps.publish.outputs.artifact-path }}/vulnerabilities.json
+            ${{ steps.publish.outputs.artifact-path }}/policy-result.json
+            ${{ steps.publish.outputs.artifact-path }}/runtime-proof.json
+          if-no-files-found: error
+          retention-days: 90
+
+  final-report:
+    name: Trusted publication validation
+    needs:
+      - scope
+      - trusted-publication
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Enforce trusted publication result
+        shell: bash
+        run: |
+          set -euo pipefail
+          scope_result="${{ needs.scope.result }}"
+          publication_scope="${{ needs.scope.outputs.trusted-publication }}"
+          publication_result="${{ needs.trusted-publication.result }}"
+          publication_status="${{ needs.trusted-publication.outputs.status }}"
+
+          {
+            printf '### Trusted publication validation\n'
+            printf -- '- publication scope: `%s`\n' "$publication_scope"
+            printf -- '- publication job result: `%s`\n' "$publication_result"
+            printf -- '- publication status: `%s`\n' "$publication_status"
+            printf -- '- publication mode: `%s`\n' "${{ needs.trusted-publication.outputs.mode }}"
+            printf -- '- evidence artifact: `%s`\n' "${{ needs.trusted-publication.outputs.artifact-name }}"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          if [ "$scope_result" != "success" ]; then
+            printf '[error] trusted publication scope failed\n' >&2
+            exit 1
+          fi
+          if [ "$publication_scope" = "false" ]; then
+            printf '[ok] trusted publication not required for this main push\n'
+            exit 0
+          fi
+          if [ "$publication_scope" != "true" ]; then
+            printf '[error] unknown trusted publication scope result\n' >&2
+            exit 1
+          fi
+          if [ "$publication_result" != "success" ] || [ "$publication_status" != "success" ]; then
+            printf '[error] trusted publication failed or was canceled\n' >&2
+            exit 1
+          fi
+          printf '[ok] trusted publication passed\n'

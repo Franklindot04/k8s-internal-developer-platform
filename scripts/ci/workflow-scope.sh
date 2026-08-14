@@ -5,11 +5,11 @@ scope="${1:-}"
 path_file="${2:-/dev/stdin}"
 
 usage() {
-  printf 'Usage: %s {kind|gitops|golden-path|service-gitops|supply-chain-pr} [changed-path-file]\n' "$0" >&2
+  printf 'Usage: %s {kind|gitops|golden-path|service-gitops|supply-chain-pr|trusted-publication} [changed-path-file]\n' "$0" >&2
 }
 
 case "$scope" in
-  kind | gitops | golden-path | service-gitops | supply-chain-pr)
+  kind | gitops | golden-path | service-gitops | supply-chain-pr | trusted-publication)
     ;;
   *)
     usage
@@ -92,6 +92,24 @@ supply_chain_pr_patterns=(
   "docs/roadmap/implementation-roadmap.md"
 )
 
+trusted_publication_patterns=(
+  ".github/workflows/trusted-image-publication.yml"
+  "scripts/supply-chain/publication.rb"
+  "scripts/supply-chain/validate-publication.rb"
+  "scripts/supply-chain/test-publication.rb"
+  "scripts/supply-chain/versions.env"
+  "scripts/supply-chain/evaluate-vulnerabilities.rb"
+  "scripts/supply-chain/install-evidence-tools.sh"
+  "scripts/supply-chain/trusted-publication.sh"
+  "tests/fixtures/supply-chain-fixture/*"
+  "tests/fixtures/supply-chain-policy/*"
+  "scripts/ci/workflow-scope.sh"
+  "scripts/ci/test-workflow-scope.sh"
+  "scripts/validate-workflow-governance.rb"
+  "scripts/supply-chain/validate-evidence-tooling.rb"
+  "Makefile"
+)
+
 relevant=false
 
 while IFS= read -r path; do
@@ -124,6 +142,12 @@ while IFS= read -r path; do
       ;;
     supply-chain-pr)
       if matches_any "$path" "${supply_chain_pr_patterns[@]}"; then
+        relevant=true
+        break
+      fi
+      ;;
+    trusted-publication)
+      if matches_any "$path" "${trusted_publication_patterns[@]}"; then
         relevant=true
         break
       fi

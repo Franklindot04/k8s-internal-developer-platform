@@ -83,6 +83,8 @@ required_paths=(
   scripts/supply-chain/validate-evidence.rb
   scripts/supply-chain/validate-evidence-tooling.rb
   scripts/supply-chain/test-evidence-policy-retention.sh
+  scripts/supply-chain/trusted-publication.sh
+  scripts/supply-chain/test-trusted-publication-workflow.rb
   tests/fixtures/supply-chain-policy/no-findings.json
   tests/fixtures/supply-chain-policy/high-only.json
   tests/fixtures/supply-chain-policy/critical.json
