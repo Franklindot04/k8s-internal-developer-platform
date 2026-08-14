@@ -6,6 +6,9 @@ REQUIRED_FILES = [
   'scripts/supply-chain/install-evidence-tools.sh',
   'scripts/supply-chain/evidence.sh',
   'scripts/supply-chain/evaluate-vulnerabilities.rb',
+  'scripts/supply-chain/publication.rb',
+  'scripts/supply-chain/test-publication.rb',
+  'scripts/supply-chain/validate-publication.rb',
   'scripts/supply-chain/validate-evidence.rb',
   'tests/fixtures/supply-chain-policy/no-findings.json',
   'tests/fixtures/supply-chain-policy/high-only.json',
@@ -64,6 +67,12 @@ end
 
 scan_paths = Dir.glob('{scripts/supply-chain,tests/fixtures/supply-chain-policy}/**/*', File::FNM_EXTGLOB).select { |path| File.file?(path) }
 scan_paths.reject! { |path| path == 'scripts/supply-chain/validate-evidence-tooling.rb' }
+publication_contract_files = [
+  'scripts/supply-chain/publication.rb',
+  'scripts/supply-chain/test-publication.rb',
+  'scripts/supply-chain/validate-publication.rb'
+]
+scan_paths.reject! { |path| publication_contract_files.include?(path) }
 scan_paths.each do |path|
   content = File.readlines(path).reject { |line| line.start_with?('#!') }.join
   FORBIDDEN_PATTERNS.each do |pattern, description|
@@ -71,7 +80,33 @@ scan_paths.each do |path|
   end
 end
 
+publication_contract_files.each do |path|
+  content = File.readlines(path).reject { |line| line.start_with?('#!') }.join
+  {
+    /\bdocker[[:space:]]+login\b/ => 'docker login',
+    /\bdocker[[:space:]]+push\b/ => 'docker push',
+    /packages:[[:space:]]*write/ => 'packages write permission',
+    /\bcosign\b/ => 'signing behavior',
+    /\bid-token:[[:space:]]*write/ => 'OIDC write permission',
+    /attestations:[[:space:]]*write/ => 'attestation write permission',
+    /pull_request_target/ => 'pull_request_target workflow behavior'
+  }.each do |pattern, description|
+    fail_with("#{path} contains forbidden #{description}") if content.match?(pattern)
+  end
+end
+
+publication_contract = File.read('scripts/supply-chain/publication.rb')
+fail_with('publication contract must lock the expected GHCR repository') unless publication_contract.include?('ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture')
+fail_with('publication contract must validate source revision') unless publication_contract.include?('validate_source_revision!')
+fail_with('publication contract must validate registry digests') unless publication_contract.include?('validate_digest!')
+fail_with('publication contract must construct candidate tags') unless publication_contract.include?('candidate-')
+fail_with('publication contract must construct authoritative source tags') unless publication_contract.include?('sha-')
+fail_with('publication contract must model rerun mismatch') unless publication_contract.include?('RERUN_EXISTING_MISMATCH')
+fail_with('publication contract must not create a trusted workflow') if File.file?('.github/workflows/trusted-image-publication.yml')
+
 evidence_script = File.read('scripts/supply-chain/evidence.sh')
+fixture_dockerfile = File.read('tests/fixtures/supply-chain-fixture/Dockerfile')
+fail_with('fixture Dockerfile must carry the repository OCI source label') unless fixture_dockerfile.include?('org.opencontainers.image.source="https://github.com/Franklindot04/k8s-internal-developer-platform"')
 fail_with('evidence script must produce CycloneDX portable SBOM') unless evidence_script.include?('cyclonedx-json=')
 fail_with('evidence script must produce Syft scanner-native SBOM') unless evidence_script.include?('syft-json=')
 fail_with('evidence script must scan the exact Docker archive') unless evidence_script.include?('docker-archive:$(basename "$ARCHIVE")')

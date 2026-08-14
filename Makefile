@@ -1,6 +1,6 @@
 PYTHON ?= python3
 
-.PHONY: help verify-tools verify-cluster-tools verify-helm-tools validate service-contract-test service-values-test service-gitops-test service-generation-test service-values-helm-validate service-gitops-runtime-validate supply-chain-fixture-test supply-chain-fixture-image-build supply-chain-fixture-smoke-test supply-chain-fixture-validate supply-chain-evidence-tools supply-chain-evidence-build supply-chain-evidence-verify supply-chain-evidence cluster-create cluster-status cluster-validate cluster-delete gitops-install gitops-bootstrap gitops-status gitops-validate gitops-test-reconciliation gitops-delete helm-lint helm-render helm-validate helm-server-dry-run golden-path-bootstrap golden-path-status golden-path-validate golden-path-delete
+.PHONY: help verify-tools verify-cluster-tools verify-helm-tools validate service-contract-test service-values-test service-gitops-test service-generation-test service-values-helm-validate service-gitops-runtime-validate supply-chain-fixture-test supply-chain-fixture-image-build supply-chain-fixture-smoke-test supply-chain-fixture-validate supply-chain-evidence-tools supply-chain-evidence-build supply-chain-evidence-verify supply-chain-evidence supply-chain-publication-test supply-chain-publication-validate cluster-create cluster-status cluster-validate cluster-delete gitops-install gitops-bootstrap gitops-status gitops-validate gitops-test-reconciliation gitops-delete helm-lint helm-render helm-validate helm-server-dry-run golden-path-bootstrap golden-path-status golden-path-validate golden-path-delete
 
 help:
 	@printf '%s\n' 'Available targets:'
@@ -22,6 +22,8 @@ help:
 	@printf '%s\n' '  make supply-chain-evidence-build  Build the exact local evidence image archive'
 	@printf '%s\n' '  make supply-chain-evidence-verify  Validate generated evidence metadata'
 	@printf '%s\n' '  make supply-chain-evidence  Run the complete local supply-chain evidence proof'
+	@printf '%s\n' '  make supply-chain-publication-test  Run trusted publication contract tests'
+	@printf '%s\n' '  make supply-chain-publication-validate  Validate trusted publication static contracts'
 	@printf '%s\n' '  make cluster-create        Create the idp-local Kind cluster'
 	@printf '%s\n' '  make cluster-status        Show idp-local cluster status'
 	@printf '%s\n' '  make cluster-validate      Validate idp-local cluster readiness'
@@ -94,6 +96,12 @@ supply-chain-evidence-verify:
 
 supply-chain-evidence:
 	@bash scripts/supply-chain/evidence.sh all
+
+supply-chain-publication-test:
+	@ruby scripts/supply-chain/test-publication.rb
+
+supply-chain-publication-validate:
+	@ruby scripts/supply-chain/validate-evidence-tooling.rb
 
 cluster-create:
 	@bash scripts/kubernetes/cluster.sh create

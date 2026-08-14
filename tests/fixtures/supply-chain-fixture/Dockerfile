@@ -18,6 +18,8 @@ RUN go build -trimpath -buildvcs=false -ldflags="-buildid=" -o /out/supply-chain
 
 FROM scratch AS runtime
 
+LABEL org.opencontainers.image.source="https://github.com/Franklindot04/k8s-internal-developer-platform"
+
 USER 65532:65532
 EXPOSE 8080
 COPY --from=build /out/supply-chain-fixture /supply-chain-fixture
