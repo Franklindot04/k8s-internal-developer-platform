@@ -27,7 +27,7 @@ Stage 6 produces trusted artifacts. Stage 5 describes deployment intent. Stage 7
 
 Stage 5 requires `spec.image.repository` and a mandatory lowercase `sha256:<digest>` in each `PlatformService`. Tags are not accepted in the developer-facing contract. The values compiler maps that intent into the Stage 4 golden-path chart with an empty tag and a digest, so deployment identity remains immutable.
 
-Today, that digest is an explicit external input. The repository does not yet contain a container build pipeline, registry publication pipeline, SBOM pipeline, image vulnerability scanner, provenance pipeline, or signing pipeline.
+Today, that digest is an explicit external input. The repository contains pull-request build, SBOM, vulnerability, and policy verification for merge safety, but it does not yet contain a trusted registry publication pipeline, provenance pipeline, or signing pipeline.
 
 ## Repository Boundary
 
@@ -101,9 +101,9 @@ trusted publication source revision
 
 Stage 6C proves the source change is buildable, tests pass, representative container construction succeeds, SBOM generation works, vulnerability scanning works, policy can be evaluated, and no publication privileges are available. Its output must not be treated as authoritative supply-chain evidence for a different artifact rebuilt and published after merge.
 
-Stage 6C1 establishes the local evidence engine before PR automation is introduced. It builds one Docker image archive for the representative fixture, uses the SHA-256 of the exact archive bytes as local verification artifact identity, loads that archive for runtime smoke proof, and runs one Syft archive cataloging operation that emits two sibling SBOM serializations: CycloneDX JSON as the portable reviewer-facing SBOM, and Syft JSON as rich scanner-native inventory evidence. Grype scans the exact Docker archive directly because direct archive scanning preserves the same primary artifact identity while avoiding the current Go SBOM function-symbol warning seen when scanning serialized SBOMs. The repository vulnerability policy evaluates the Grype report, and an evidence manifest plus sidecar checksum validates the procedural chain. This archive SHA-256 is not a registry digest, published digest, Stage 5 deployable digest, or authoritative registry identity.
+Stage 6C1 establishes the local evidence engine. It installs repository-owned pinned Syft and Grype tooling, performs one application build into an exact Docker archive, uses the SHA-256 of the archive bytes as verification artifact identity, removes and reloads the archive for runtime correlation, and runs one Syft archive cataloging operation that emits two sibling SBOM serializations: CycloneDX JSON as the portable reviewer-facing SBOM, and Syft JSON as rich scanner-native inventory evidence. Grype scans the exact Docker archive directly because direct archive scanning preserves the same primary artifact identity while avoiding the current Go SBOM function-symbol warning seen when scanning serialized SBOMs. Direct archive vulnerability verification does not provide function-level reachability analysis, and no such capability is claimed. The repository vulnerability policy evaluates the Grype report, fails closed for malformed/tooling failures, retains complete evidence for legitimate blocking policy failures, and an evidence manifest plus sidecar checksum validates the procedural chain. This archive SHA-256 is not a registry digest, published digest, Stage 5 deployable digest, or authoritative registry identity.
 
-Stage 6C2 is implemented for review. It wires the already-tested evidence engine into untrusted pull-request CI with read-only permissions, no publication credentials, an always-reporting final gate, and retained evidence artifacts. The workflow builds the GitHub pull-request merge ref, records base/head/merge source metadata, uploads validated evidence only from explicit paths, and keeps GitHub artifact digests distinct from the archive SHA-256 and any future registry digest. Stage 6C is not complete until Stage 6C2 is merged, proven on relevant and irrelevant pull-request paths, and audited after merge.
+Stage 6C2 is complete. It wires the evidence engine into untrusted `pull_request` CI with `contents: read`, no secrets, no publication credentials, a runner-portable Docker build/archive path, scope-classified conditional execution, retained artifacts, GitHub artifact digests, and the stable `Supply-chain PR validation` final gate. The workflow builds the GitHub pull-request merge ref, records base/head/merge source metadata, uploads validated evidence only from explicit paths, and keeps GitHub artifact digests distinct from the archive SHA-256 and any future registry digest. Relevant supply-chain pull requests prove `supply-chain-pr=true`, execute evidence generation, retain image and evidence artifacts, and pass the final gate. Irrelevant pull requests still start the workflow, prove `supply-chain-pr=false`, skip expensive evidence execution, create no supply-chain artifacts, and pass the final gate. Stage 6C is complete as PR build/test/SBOM/vulnerability verification, but its evidence remains merge-safety evidence and does not grant trusted publication authority.
 
 Stage 6D must ensure the exact deployable artifact has an immutable digest, SBOM, and vulnerability evidence before that digest is ready for Stage 5 handoff. Stage 6A does not decide whether Stage 6D rebuilds on protected `main`, promotes an identical prebuilt OCI artifact while preserving its digest, or uses another safe design. It locks only this invariant: required evidence must refer to the exact published artifact digest.
 
@@ -241,23 +241,23 @@ Initial Stage 6 should avoid multi-cloud registry abstraction, multiple applicat
 
 ### Stage 6A - Supply-Chain Architecture & Trust Contracts
 
-Current slice. Defines architecture and trust contracts. No software implementation.
+Complete. Defines architecture and trust contracts. No software implementation.
 
 ### Stage 6B - Representative Build Fixture & Repeatable Build
 
-Current slice. Proves a minimal application source can be tested and repeatably built into a local container artifact with pinned declared inputs. No registry publication.
+Complete. Proves a minimal application source can be tested and repeatably built into a local container artifact with pinned declared inputs. No registry publication.
 
 ### Stage 6C - PR Build / Test / SBOM / Vulnerability Verification
 
-Future slice. Proves untrusted PR verification with no publication credentials.
+Complete. Proves untrusted PR verification with no publication credentials, relevant-path evidence execution, irrelevant-path fast-path behavior, retained evidence artifacts, and a stable required-check-ready final gate.
 
 ### Stage 6D - Trusted OCI Publication & Immutable Digest
 
-Future slice. Publishes from a trusted event and produces authoritative repository plus digest. Registry provider selection belongs here.
+Next slice. Publishes from a trusted event and produces authoritative repository plus digest. Registry provider selection belongs here.
 
 ### Stage 6E - Provenance / Attestation
 
-Future slice. Binds trusted build provenance to the published digest and evaluates keyless signing.
+Not started. Binds trusted build provenance to the published digest and evaluates keyless signing.
 
 ## Definition Of Done
 
