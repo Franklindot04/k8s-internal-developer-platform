@@ -138,8 +138,9 @@ candidate_repository@verified_digest
 ```
 
 Publication runs use one trusted publication concurrency group.
+The workflow uses `queue: max` so multiple pending relevant publication runs are retained up to the platform queue limit instead of replacing earlier pending runs.
 The workflow does not use cancel-in-progress behavior for registry mutation.
-The workflow does not claim strict commit-order guarantees; source-SHA-scoped tags and digest verification keep independent main publications from overwriting one another.
+The workflow does not claim arbitrary queue capacity or strict Git source-revision ordering beyond GitHub's documented concurrency queue semantics; source-SHA-scoped tags and digest verification keep independent main publications from overwriting one another.
 
 ## Boundaries
 

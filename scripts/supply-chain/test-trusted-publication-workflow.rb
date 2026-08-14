@@ -55,6 +55,7 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     concurrency = workflow.fetch('jobs').fetch('trusted-publication').fetch('concurrency')
 
     assert_equal('trusted-image-publication', concurrency.fetch('group'))
+    assert_equal('max', concurrency.fetch('queue'))
     refute_includes(concurrency.keys, 'cancel-in-progress')
   end
 

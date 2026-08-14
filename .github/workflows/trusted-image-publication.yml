@@ -54,6 +54,7 @@ jobs:
       packages: write
     concurrency:
       group: trusted-image-publication
+      queue: max
     outputs:
       status: ${{ steps.publish.outputs.status }}
       mode: ${{ steps.publish.outputs.mode }}

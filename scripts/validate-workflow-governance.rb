@@ -129,6 +129,8 @@ def assert_trusted_publication_workflow
   fail_with("#{path} must use ubuntu-24.04") unless content.scan(/runs-on:\s+ubuntu-24\.04/).length >= 3
   fail_with("#{path} must use publication timeout") unless content.include?('timeout-minutes: 30')
   fail_with("#{path} must use trusted publication concurrency group") unless content.match?(/concurrency:\n\s+group:\s+trusted-image-publication/)
+  fail_with("#{path} must use queue max") unless content.match?(/concurrency:\n\s+group:\s+trusted-image-publication\n\s+queue:\s+max/)
+  fail_with("#{path} must not use queue single") if content.match?(/queue:\s+single/)
   fail_with("#{path} must not cancel publication runs") if content.include?('cancel-in-progress')
   fail_with("#{path} must not request OIDC") if content.match?(/id-token:\s+write/)
   fail_with("#{path} must not request attestations") if content.match?(/attestations:\s+write/)
