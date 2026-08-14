@@ -34,8 +34,11 @@ Current required `main` checks:
 - `Kind lifecycle validation`
 - `Argo CD reconciliation validation`
 - `Helm chart and GitOps validation`
+- `Supply-chain PR validation`
 
-`Supply-chain PR validation` is implemented for Stage 6C2 review but is not yet required. It must remain non-required until relevant-path and irrelevant-path pull-request behavior are proven after merge.
+`Supply-chain PR validation` is required after both Stage 6C2 pull-request paths were proven: relevant supply-chain changes execute evidence generation, retain validated artifacts, and pass the stable final gate; unrelated documentation changes still start the workflow, classify supply-chain scope as irrelevant, skip expensive evidence execution, create no supply-chain artifacts, and pass the same final gate.
+
+`Service contract validation` and `Service GitOps validation` are implemented but are not required `main` contexts.
 
 The Helm final gate was promoted after both governance paths were proven: relevant platform changes execute the appropriate runtime validation before final-gate success, and unrelated documentation changes intentionally skip expensive runtime validation while final gates still report success.
 
