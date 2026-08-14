@@ -76,6 +76,7 @@ def build_manifest(options)
       'sha256' => sha256(archive)
     },
     'runtime' => {
+      'built_docker_image_id' => require_option(options, :built_docker_image_id),
       'loaded_docker_image_id' => require_option(options, :docker_image_id),
       'source_archive_filename' => relative_name(archive),
       'source_archive_sha256' => sha256(archive)
@@ -183,7 +184,9 @@ def validate_manifest(evidence_dir, versions_file)
   %w[schema_version target_architecture].each do |key|
     fail_with("manifest missing required field: #{key}") unless manifest.key?(key)
   end
+  fail_with('built image ID missing') if runtime.fetch('built_docker_image_id').to_s.empty?
   fail_with('runtime image ID missing') if runtime.fetch('loaded_docker_image_id').to_s.empty?
+  fail_with('loaded image ID differs from built image ID') unless runtime.fetch('loaded_docker_image_id') == runtime.fetch('built_docker_image_id')
   puts '[ok] evidence manifest validation passed'
 end
 
@@ -197,6 +200,7 @@ parser = OptionParser.new do |opts|
   opts.on('--vulnerabilities PATH') { |value| options[:vulnerabilities] = value }
   opts.on('--policy PATH') { |value| options[:policy] = value }
   opts.on('--versions-file PATH') { |value| options[:versions_file] = value }
+  opts.on('--built-docker-image-id VALUE') { |value| options[:built_docker_image_id] = value }
   opts.on('--docker-image-id VALUE') { |value| options[:docker_image_id] = value }
   opts.on('--syft-version VALUE') { |value| options[:syft_version] = value }
   opts.on('--grype-version VALUE') { |value| options[:grype_version] = value }

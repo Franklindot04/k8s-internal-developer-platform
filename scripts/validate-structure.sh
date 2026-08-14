@@ -58,6 +58,7 @@ required_paths=(
   .github/workflows/local-kubernetes.yml
   .github/workflows/gitops-control-plane.yml
   .github/workflows/golden-path-helm.yml
+  .github/workflows/supply-chain-pr.yml
   scripts/verify-tools.sh
   scripts/validate.sh
   scripts/validate-generated-structure.sh
@@ -81,6 +82,7 @@ required_paths=(
   scripts/supply-chain/evaluate-vulnerabilities.rb
   scripts/supply-chain/validate-evidence.rb
   scripts/supply-chain/validate-evidence-tooling.rb
+  scripts/supply-chain/test-evidence-policy-retention.sh
   tests/fixtures/supply-chain-policy/no-findings.json
   tests/fixtures/supply-chain-policy/high-only.json
   tests/fixtures/supply-chain-policy/critical.json

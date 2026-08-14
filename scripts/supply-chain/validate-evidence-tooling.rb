@@ -75,11 +75,23 @@ evidence_script = File.read('scripts/supply-chain/evidence.sh')
 fail_with('evidence script must produce CycloneDX portable SBOM') unless evidence_script.include?('cyclonedx-json=')
 fail_with('evidence script must produce Syft scanner-native SBOM') unless evidence_script.include?('syft-json=')
 fail_with('evidence script must scan the exact Docker archive') unless evidence_script.include?('docker-archive:$(basename "$ARCHIVE")')
+fail_with('evidence script must use Buildx load for Docker-driver portability') unless evidence_script.include?('--load')
+fail_with('evidence script must save the loaded image into the archive') unless evidence_script.include?('docker image save --output "$ARCHIVE" "$IMAGE_TAG"')
+fail_with('evidence script must remove the local tag before archive reload') unless evidence_script.include?('docker image rm "$IMAGE_TAG"')
+fail_with('evidence script must load the exact Docker archive') unless evidence_script.include?('docker load --input "$ARCHIVE"')
+fail_with('evidence script must record the built Docker image ID') unless evidence_script.include?('built Docker image ID')
+fail_with('evidence script must compare built and loaded image IDs') unless evidence_script.include?('loaded image ID differs from built image ID')
+fail_with('evidence script must not use Docker exporter direct archive output') if evidence_script.include?('type=docker,dest=')
+fail_with('evidence script must not create a custom Buildx builder') if evidence_script.match?(/\bdocker[[:space:]]+buildx[[:space:]]+create\b/)
+fail_with('evidence script must perform exactly one application Buildx build') unless evidence_script.scan(/\bdocker[[:space:]]+buildx[[:space:]]+build\b/).length == 1
 fail_with('evidence script must not scan CycloneDX SBOM') if evidence_script.include?('sbom:$(basename "$SBOM")')
 fail_with('evidence script must not use scanner SBOM as vulnerability authority') if evidence_script.include?('sbom:$(basename "$SCANNER_SBOM")')
 
-if Dir.glob('.github/workflows/*supply-chain*').any?
-  fail_with('Stage 6C1 must not add supply-chain workflow files')
+allowed_supply_chain_workflows = ['.github/workflows/supply-chain-pr.yml']
+supply_chain_workflows = Dir.glob('.github/workflows/*supply-chain*')
+unexpected_supply_chain_workflows = supply_chain_workflows - allowed_supply_chain_workflows
+if unexpected_supply_chain_workflows.any?
+  fail_with("unexpected supply-chain workflow file(s): #{unexpected_supply_chain_workflows.join(', ')}")
 end
 
 puts '[ok] supply-chain evidence tooling static validation passed'

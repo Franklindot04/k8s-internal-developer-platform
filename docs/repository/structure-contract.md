@@ -41,7 +41,7 @@ Stage 6A state: architecture, ADR, recovery, roadmap, structure, local Kubernete
 
 Owns repository automation and contribution controls. Future contents may include workflows, pull request templates, issue templates, and repository automation.
 
-Stage 6A state: baseline repository validation, local Kubernetes lifecycle, GitOps reconciliation validation, golden-path Helm/GitOps validation, service contract, and service GitOps workflows are established. No Stage 6 build, publish, SBOM, scanning, signing, or provenance workflows exist yet.
+Stage 6 state: baseline repository validation, local Kubernetes lifecycle, GitOps reconciliation validation, golden-path Helm/GitOps validation, service contract, service GitOps, and untrusted supply-chain PR verification workflows are established. No Stage 6 publish, signing, or provenance workflows exist yet.
 
 ## `scripts/`
 

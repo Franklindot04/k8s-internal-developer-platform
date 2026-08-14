@@ -5,11 +5,11 @@ scope="${1:-}"
 path_file="${2:-/dev/stdin}"
 
 usage() {
-  printf 'Usage: %s {kind|gitops|golden-path|service-gitops} [changed-path-file]\n' "$0" >&2
+  printf 'Usage: %s {kind|gitops|golden-path|service-gitops|supply-chain-pr} [changed-path-file]\n' "$0" >&2
 }
 
 case "$scope" in
-  kind | gitops | golden-path | service-gitops)
+  kind | gitops | golden-path | service-gitops | supply-chain-pr)
     ;;
   *)
     usage
@@ -75,6 +75,23 @@ service_gitops_patterns=(
   "scripts/service-gitops/*"
 )
 
+supply_chain_pr_patterns=(
+  ".github/workflows/supply-chain-pr.yml"
+  "scripts/supply-chain/*"
+  "tests/fixtures/supply-chain-fixture/*"
+  "tests/fixtures/supply-chain-policy/*"
+  "scripts/ci/workflow-scope.sh"
+  "scripts/ci/test-workflow-scope.sh"
+  "scripts/validate-workflow-governance.rb"
+  "scripts/validate.sh"
+  "scripts/validate-structure.sh"
+  "Makefile"
+  ".gitignore"
+  "docs/ci-required-checks.md"
+  "docs/supply-chain-architecture.md"
+  "docs/roadmap/implementation-roadmap.md"
+)
+
 relevant=false
 
 while IFS= read -r path; do
@@ -101,6 +118,12 @@ while IFS= read -r path; do
       ;;
     service-gitops)
       if matches_any "$path" "${service_gitops_patterns[@]}"; then
+        relevant=true
+        break
+      fi
+      ;;
+    supply-chain-pr)
+      if matches_any "$path" "${supply_chain_pr_patterns[@]}"; then
         relevant=true
         break
       fi

@@ -11,6 +11,8 @@ SBOM="$EVIDENCE_DIR/sbom.cdx.json"
 SCANNER_SBOM="$EVIDENCE_DIR/sbom.syft.json"
 VULNERABILITIES="$EVIDENCE_DIR/vulnerabilities.json"
 POLICY_RESULT="$EVIDENCE_DIR/policy-result.json"
+BUILT_IMAGE_ID="$EVIDENCE_DIR/built-image-id.txt"
+LOADED_IMAGE_ID="$EVIDENCE_DIR/loaded-image-id.txt"
 IMAGE_TAG="idp/supply-chain-fixture:test"
 PLATFORM="linux/amd64"
 
@@ -88,6 +90,8 @@ source_test() {
 }
 
 build_archive() {
+  local built_image_id=""
+
   require_docker
   mkdir -p "$EVIDENCE_DIR"
   rm -f "$ARCHIVE"
@@ -97,27 +101,44 @@ build_archive() {
     --sbom=false \
     --target runtime \
     --tag "$IMAGE_TAG" \
-    --output "type=docker,dest=$ARCHIVE" \
+    --load \
     "$FIXTURE_DIR"
+  built_image_id="$(docker image inspect "$IMAGE_TAG" --format '{{.Id}}')"
+  [ -n "$built_image_id" ] || fail "built image ID missing"
+  printf '%s\n' "$built_image_id" >"$BUILT_IMAGE_ID"
+  docker image save --output "$ARCHIVE" "$IMAGE_TAG"
   [ -s "$ARCHIVE" ] || fail "image archive was not created"
   sha256_file "$ARCHIVE" >"$EVIDENCE_DIR/artifact-sha256.txt"
+  printf '[ok] built Docker image ID: %s\n' "$built_image_id"
   printf '[ok] archive SHA-256: %s\n' "$(cat "$EVIDENCE_DIR/artifact-sha256.txt")"
 }
 
 load_archive() {
+  local archive_sha=""
+  local built_image_id=""
+  local image_id=""
+
   require_docker
   [ -f "$ARCHIVE" ] || fail "image archive missing"
+  [ -f "$BUILT_IMAGE_ID" ] || fail "built image ID record missing"
+  built_image_id="$(cat "$BUILT_IMAGE_ID")"
   archive_sha="$(sha256_file "$ARCHIVE")"
+  docker image rm "$IMAGE_TAG" >/dev/null 2>&1 || true
+  if docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+    fail "fixture image tag still present before archive load"
+  fi
+  printf '%s\n' "removed $IMAGE_TAG before archive load" >"$EVIDENCE_DIR/pre-load-image-removal.txt"
   docker load --input "$ARCHIVE" >"$EVIDENCE_DIR/docker-load.txt"
   image_id="$(docker image inspect "$IMAGE_TAG" --format '{{.Id}}')"
   [ -n "$image_id" ] || fail "loaded image ID missing"
-  printf '%s\n' "$image_id" >"$EVIDENCE_DIR/loaded-image-id.txt"
+  [ "$image_id" = "$built_image_id" ] || fail "loaded image ID differs from built image ID"
+  printf '%s\n' "$image_id" >"$LOADED_IMAGE_ID"
   printf '%s\n' "$archive_sha" >"$EVIDENCE_DIR/runtime-source-archive-sha256.txt"
   printf '[ok] loaded Docker image ID: %s\n' "$image_id"
 }
 
 smoke_loaded_image() {
-  [ -f "$EVIDENCE_DIR/loaded-image-id.txt" ] || fail "loaded image ID record missing"
+  [ -f "$LOADED_IMAGE_ID" ] || fail "loaded image ID record missing"
   bash "$ROOT/scripts/supply-chain/fixture.sh" smoke-image "$IMAGE_TAG"
 }
 
@@ -174,6 +195,39 @@ evaluate_policy() {
   ruby "$ROOT/scripts/supply-chain/evaluate-vulnerabilities.rb" "$VULNERABILITIES" "$POLICY_RESULT"
 }
 
+policy_result_records_blocking_failure() {
+  [ -f "$POLICY_RESULT" ] || fail "policy result missing after policy failure"
+
+  ruby -rjson -e '
+    path = ARGV.fetch(0)
+    data = JSON.parse(File.read(path))
+    abort("[error] policy result did not record FAIL") unless data["decision"] == "FAIL"
+    count = Integer(data.fetch("blocking_finding_count"))
+    abort("[error] policy result has no blocking findings") unless count.positive?
+    severities = data.fetch("blocking_severities")
+    abort("[error] policy result missing CRITICAL blocker") unless severities.include?("CRITICAL")
+  ' "$POLICY_RESULT"
+}
+
+evaluate_policy_for_retention() {
+  local status=0
+
+  set +e
+  evaluate_policy
+  status=$?
+  set -e
+
+  if [ "$status" -eq 0 ]; then
+    return 0
+  fi
+
+  if ! policy_result_records_blocking_failure; then
+    fail "policy failure did not produce a legitimate blocking result"
+  fi
+  printf '[ok] vulnerability policy failure recorded; continuing to finalize evidence\n'
+  return "$status"
+}
+
 generate_manifest() {
   syft_bin="$(tool_path syft)"
   grype_bin="$(tool_path grype)"
@@ -189,7 +243,8 @@ generate_manifest() {
     --vulnerabilities "$VULNERABILITIES" \
     --policy "$POLICY_RESULT" \
     --versions-file "$VERSIONS_FILE" \
-    --docker-image-id "$(cat "$EVIDENCE_DIR/loaded-image-id.txt")" \
+    --built-docker-image-id "$(cat "$BUILT_IMAGE_ID")" \
+    --docker-image-id "$(cat "$LOADED_IMAGE_ID")" \
     --syft-version "$syft_version" \
     --grype-version "$grype_version" \
     --target-architecture "$PLATFORM" \
@@ -204,6 +259,8 @@ verify_evidence() {
 }
 
 all() {
+  local policy_status=0
+
   prepare_output
   install_tools
   source_test
@@ -212,9 +269,16 @@ all() {
   smoke_loaded_image
   generate_sbom
   scan_vulnerabilities
-  evaluate_policy
+  set +e
+  evaluate_policy_for_retention
+  policy_status=$?
+  set -e
   generate_manifest
   verify_evidence
+  if [ "$policy_status" -ne 0 ]; then
+    printf '[error] vulnerability policy failed after evidence validation\n' >&2
+    return "$policy_status"
+  fi
 }
 
 case "${1:-all}" in
