@@ -107,6 +107,10 @@ Stage 6C2 is complete. It wires the evidence engine into untrusted `pull_request
 
 Stage 6D must ensure the exact deployable artifact has an immutable digest, SBOM, and vulnerability evidence before that digest is ready for Stage 5 handoff. Stage 6A does not decide whether Stage 6D rebuilds on protected `main`, promotes an identical prebuilt OCI artifact while preserving its digest, or uses another safe design. It locks only this invariant: required evidence must refer to the exact published artifact digest.
 
+Stage 6D1 establishes the local trusted-publication engine and contracts without live registry mutation. It locks GHCR repository naming for the representative supply-chain fixture, source-revision and registry-digest validation, non-authoritative candidate references, authoritative source-revision convenience tags, digest continuity checks, same-source rerun safety, publication evidence validation, and the machine-readable `image-reference.json` Stage 5 handoff shape. Successful publication requires build metadata, candidate registry, verified scan target, authoritative tag, and handoff digests to match the same OCI registry digest. Candidate-only and policy-blocked states cannot produce a Stage 5 handoff. A same-source rerun may accept an existing matching digest, but it must fail closed if the source-revision tag resolves to a different digest.
+
+Stage 6D2 is not implemented yet. It will add the trusted GHCR workflow and first controlled live publication from protected `main`, using the Stage 6D1 engine instead of reimplementing publication policy in workflow YAML. The planned package visibility recommendation is public because Stage 5 does not currently expose complete self-service private-registry authentication, but visibility remains pending explicit Stage 6D2 governance. Compact trusted publication evidence should be retained for 90 days. Failed candidates may remain as non-authoritative forensic evidence without granting package deletion permission in the initial workflow.
+
 ## Registry Contract
 
 Stage 6 requires an OCI-compatible registry, not a cloud-specific registry selected during Stage 6A. The future registry must support content-addressable digests, authenticated trusted publication, digest lookup, manageable CI credentials, and evidence/referrer support where practical.
@@ -253,7 +257,7 @@ Complete. Proves untrusted PR verification with no publication credentials, rele
 
 ### Stage 6D - Trusted OCI Publication & Immutable Digest
 
-Next slice. Publishes from a trusted event and produces authoritative repository plus digest. Registry provider selection belongs here.
+In progress. The local trusted-publication engine and contracts are implemented; the live GHCR workflow and first controlled publication are not implemented yet.
 
 ### Stage 6E - Provenance / Attestation
 
