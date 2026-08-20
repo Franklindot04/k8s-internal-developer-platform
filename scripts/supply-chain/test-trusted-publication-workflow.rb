@@ -23,6 +23,10 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     @runtime ||= File.read(RUNTIME)
   end
 
+  def publication_contract
+    @publication_contract ||= File.read('scripts/supply-chain/publication.rb')
+  end
+
   def package_metadata_valid?(object, expected_visibility)
     object['visibility'] == expected_visibility &&
       object.dig('repository', 'full_name') == SOURCE_REPOSITORY
@@ -83,14 +87,40 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_includes(runtime, 'docker buildx imagetools create')
     assert_includes(runtime, 'verify_package_metadata "$CANDIDATE_PACKAGE_NAME" "public" "candidate"')
     assert_includes(runtime, 'verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "public" "authoritative"')
-    assert_includes(runtime, 'classify_authoritative_publication_state')
-    assert_includes(runtime, 'validate_source_repository_token')
-    assert_includes(runtime, 'corroborate_authoritative_package_absence')
-    assert_includes(runtime, 'classify_authoritative_package_response')
-    assert_includes(runtime, 'classify_package_namespace_response')
-    assert_includes(runtime, 'classify_authoritative_versions_response')
+    assert_includes(runtime, 'classify_authoritative_manifest_state')
+    assert_includes(runtime, 'registry_manifest_get')
+    assert_includes(runtime, 'registry_bearer_token')
+    assert_includes(runtime, 'classify_registry_manifest_response')
+    assert_includes(runtime, 'emit_precheck_telemetry')
+    assert_includes(runtime, 'pre_promotion_recheck_state')
+    refute_includes(runtime, '/users/Franklindot04/packages?package_type=container')
+    refute_includes(runtime, 'GITHUB_PACKAGES_API_ROOT')
     assert_includes(runtime, 'LOCAL_POLICY_DECISION')
     assert_includes(runtime, 'docker push "$candidate_ref"')
+  end
+
+  def test_registry_manifest_precheck_fails_closed_with_safe_telemetry
+    assert_includes(runtime, 'precheck_stage=%s http_status=%s registry_error_code=%s classification=%s')
+    assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_NETWORK_FAILURE')
+    assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_AUTH_FAILURE')
+    assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_MALFORMED')
+    assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_ABSENT')
+    assert_includes(publication_contract, 'MANIFEST_UNKNOWN')
+    assert_includes(publication_contract, 'NAME_UNKNOWN')
+    assert_includes(runtime, 'authoritative pre-build check failed closed')
+    assert_includes(runtime, 'authoritative pre-promotion recheck failed closed')
+    refute_match(/printf .*Authorization|printf .*Bearer|cat "\$token_body"|cat "\$manifest_body"/, runtime)
+  end
+
+  def test_authoritative_recheck_is_before_mutation
+    recheck_index = runtime.index('classify_authoritative_manifest_state "authenticated" "authoritative-recheck"')
+    mutation_index = runtime.index('docker buildx imagetools create')
+
+    refute_nil(recheck_index)
+    refute_nil(mutation_index)
+    assert_operator(recheck_index, :<, mutation_index)
+    assert_includes(runtime, 'PRE_PROMOTION_EXISTS_SAME_DIGEST')
+    assert_includes(runtime, 'PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST')
   end
 
   def test_authoritative_publication_is_environment_gated
