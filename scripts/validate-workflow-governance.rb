@@ -130,6 +130,7 @@ def assert_trusted_publication_workflow
   fail_with("#{path} must use publication timeout") unless content.include?('timeout-minutes: 30')
   fail_with("#{path} must use trusted publication concurrency group") unless content.match?(/concurrency:\n\s+group:\s+trusted-image-publication/)
   fail_with("#{path} must use queue max") unless content.match?(/concurrency:\n\s+group:\s+trusted-image-publication\n\s+queue:\s+max/)
+  fail_with("#{path} must serialize the full trusted publication transaction at workflow level") unless content.match?(/^concurrency:\n\s+group:\s+trusted-image-publication\n\s+queue:\s+max/m)
   fail_with("#{path} must not use queue single") if content.match?(/queue:\s+single/)
   fail_with("#{path} must not cancel publication runs") if content.include?('cancel-in-progress')
   fail_with("#{path} must not request OIDC") if content.match?(/id-token:\s+write/)
@@ -142,18 +143,25 @@ def assert_trusted_publication_workflow
   fail_with("#{path} must not grant checks write") if content.match?(/checks:\s+write/)
   fail_with("#{path} must not grant statuses write") if content.match?(/statuses:\s+write/)
   fail_with("#{path} must not grant security events write") if content.match?(/security-events:\s+write/)
-  fail_with("#{path} must grant packages write exactly once") unless content.scan(/packages:\s+write/).length == 1
+  fail_with("#{path} must grant packages write exactly twice") unless content.scan(/packages:\s+write/).length == 2
+  fail_with("#{path} must gate authoritative publication with protected environment name") unless content.include?('environment: authoritative-publication')
+  fail_with("#{path} is missing immutable download-artifact pin") unless content.include?('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
 
-  scope_block = content[/  scope:\n.*?\n\n  trusted-publication:/m]
-  publication_block = content[/  trusted-publication:\n.*?\n\n  final-report:/m]
+  scope_block = content[/  scope:\n.*?\n\n  candidate:/m]
+  candidate_block = content[/  candidate:\n.*?\n\n  authoritative:/m]
+  authoritative_block = content[/  authoritative:\n.*?\n\n  final-report:/m]
   final_block = content[/  final-report:\n.*\z/m]
   fail_with("#{path} missing scope job") unless scope_block
-  fail_with("#{path} missing publication job") unless publication_block
+  fail_with("#{path} missing candidate job") unless candidate_block
+  fail_with("#{path} missing authoritative job") unless authoritative_block
   fail_with("#{path} missing final report job") unless final_block
   fail_with("#{path} scope job must not receive packages write") if scope_block.include?('packages: write')
   fail_with("#{path} final job must not receive packages write") if final_block.include?('packages: write')
-  fail_with("#{path} publication job must receive packages write") unless publication_block.include?("packages: write")
-  fail_with("#{path} publication job must run only when trusted-publication scope is true") unless publication_block.include?("needs.scope.outputs.trusted-publication == 'true'")
+  fail_with("#{path} candidate job must receive packages write") unless candidate_block.include?("packages: write")
+  fail_with("#{path} authoritative job must receive packages write") unless authoritative_block.include?("packages: write")
+  fail_with("#{path} candidate job must run only when trusted-publication scope is true") unless candidate_block.include?("needs.scope.outputs.trusted-publication == 'true'")
+  fail_with("#{path} authoritative job must wait for candidate evidence") unless authoritative_block.include?('Download candidate evidence')
+  fail_with("#{path} authoritative job must run only for newly verified candidates") unless authoritative_block.include?("needs.candidate.outputs.mode == 'candidate'")
   fail_with("#{path} final report must use if always") unless final_block.include?('if: ${{ always() }}')
   fail_with("#{path} must not upload broad temporary state") if content.include?('$RUNNER_TEMP/**') || content.include?('/tmp/**')
   fail_with("#{path} must not upload Docker archives") if content.match?(/\.tar\b|supply-chain-fixture\.tar/)

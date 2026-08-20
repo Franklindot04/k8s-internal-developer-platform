@@ -14,6 +14,7 @@ class PublicationContractTest < Minitest::Test
   RUN_ATTEMPT = '1'
   DIGEST_A = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   DIGEST_B = 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  ARCHIVE_SHA = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
 
   def versions
     @versions ||= SupplyChainPublication.read_versions(VERSIONS_FILE)
@@ -31,7 +32,9 @@ class PublicationContractTest < Minitest::Test
       status: status,
       candidate_repository: SupplyChainPublication::CANDIDATE_REPOSITORY,
       authoritative_repository: SupplyChainPublication::AUTHORITATIVE_REPOSITORY,
-      build_metadata_digest: digest,
+      local_state: status == 'existing' ? 'EXISTING_PUBLICATION' : 'LOCAL_VERIFIED',
+      local_image_id: digest,
+      local_archive_sha256: ARCHIVE_SHA,
       candidate_digest: digest,
       scan_target_digest: digest,
       authoritative_digest: digest,
@@ -90,14 +93,20 @@ class PublicationContractTest < Minitest::Test
     end
   end
 
-  def test_policy_blocked_fixture_validates_without_authoritative_fields
-    input = base_input(status: 'blocked', policy: 'FAIL')
+  def test_policy_blocked_fixture_validates_without_authoritative_or_candidate_digest
+    input = base_input(status: 'local_blocked', policy: 'FAIL')
+    input[:local_state] = 'LOCAL_BLOCKED'
     input.delete(:authoritative_digest)
     input.delete(:authoritative_repository)
+    input.delete(:candidate_digest)
+    input.delete(:scan_target_digest)
     blocked = manifest(input)
 
-    assert_equal('blocked', blocked.fetch('publication').fetch('status'))
+    assert_equal('local_blocked', blocked.fetch('publication').fetch('status'))
     assert_equal('FAIL', blocked.fetch('vulnerability').fetch('decision'))
+    assert_equal('LOCAL_BLOCKED', blocked.fetch('local').fetch('state'))
+    assert_equal(false, blocked.fetch('candidate').fetch('published'))
+    assert(!blocked.fetch('candidate').key?('digest'))
     assert(!blocked.key?('authoritative'))
     assert_contract_error(/handoff requires/) do
       SupplyChainPublication.build_handoff(blocked, sha('blocked'))
@@ -111,6 +120,20 @@ class PublicationContractTest < Minitest::Test
     input[:scan_target_digest] = DIGEST_B
 
     assert_contract_error(/candidate digest continuity mismatch/) { manifest(input) }
+  end
+
+  def test_local_identity_must_not_be_used_as_registry_digest_authority
+    input = base_input(status: 'candidate')
+    input.delete(:authoritative_digest)
+    input.delete(:authoritative_repository)
+    input[:local_image_id] = DIGEST_B
+    input[:local_archive_sha256] = sha('different-local-archive')
+
+    candidate = manifest(input)
+
+    assert_equal(DIGEST_B, candidate.fetch('local').fetch('image_id'))
+    assert_equal(DIGEST_A, candidate.fetch('candidate').fetch('digest'))
+    assert_equal(DIGEST_A, candidate.fetch('verification').fetch('scan_target_digest'))
   end
 
   def test_final_digest_mismatch_fails
@@ -136,6 +159,18 @@ class PublicationContractTest < Minitest::Test
       attempted_digest: DIGEST_A
     )
     assert_equal('RERUN_EXISTING_MATCH', result)
+  end
+
+  def test_existing_publication_does_not_claim_new_candidate
+    input = base_input(status: 'existing')
+    input.delete(:candidate_digest)
+    existing = manifest(input)
+
+    assert_equal('existing', existing.fetch('publication').fetch('status'))
+    assert_equal('EXISTING_PUBLICATION', existing.fetch('local').fetch('state'))
+    assert_equal(false, existing.fetch('candidate').fetch('published'))
+    assert(!existing.fetch('candidate').key?('digest'))
+    assert_equal(DIGEST_A, existing.fetch('authoritative').fetch('digest'))
   end
 
   def test_same_source_rerun_mismatch_fails_closed
@@ -235,6 +270,17 @@ class PublicationContractTest < Minitest::Test
     assert_match(/\Asha256:[a-f0-9]{64}\z/, image.fetch('digest'))
     assert(!image.fetch('repository').include?('@'))
     assert(!image.fetch('repository').split('/').last.include?(':'))
+  end
+
+  def test_candidate_visibility_contract_is_verified_public_staging
+    candidate = manifest(base_input(status: 'candidate').tap do |input|
+      input.delete(:authoritative_digest)
+      input.delete(:authoritative_repository)
+    end)
+
+    assert_equal('VERIFIED_PUBLIC_STAGING', candidate.fetch('candidate').fetch('role'))
+    assert_equal('public', candidate.fetch('candidate').fetch('expected_visibility'))
+    assert_equal(true, candidate.fetch('candidate').fetch('published'))
   end
 
   def test_handoff_rejects_candidate_repository

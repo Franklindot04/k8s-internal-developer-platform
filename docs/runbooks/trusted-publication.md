@@ -9,11 +9,11 @@ It does not authenticate to GHCR, publish an image, create a package, or change 
 
 Trusted publication boundary hardening is complete / merged.
 
-Stage 6D2 is implemented for review. It adds the protected-main GHCR workflow and publication runtime, but the first live publication is not yet proven because the workflow must run only after protected merge to `main`.
+Stage 6D2 is in recovery after the first protected-main live attempt proved workflow-created GHCR packages inherit the public visibility model of this repository. The old private candidate quarantine contract is retired. The active design is runner-local quarantine, verified public GHCR candidate staging, and environment-gated authoritative publication.
 
 ## Publication Contract
 
-The planned private candidate quarantine repository is:
+The verified public candidate staging repository is:
 
 ```text
 ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture-candidates
@@ -25,9 +25,9 @@ The planned authoritative publication repository is:
 ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture
 ```
 
-The candidate repository is non-authoritative quarantine for unverified, verified-but-unpromoted, policy-blocked, and failed-attempt forensic candidates.
+The candidate repository is non-authoritative public staging for candidates that have already passed local runtime, SBOM, vulnerability scan, and policy verification.
 The authoritative repository is the only repository eligible for the Stage 5 image handoff.
-These package names remain contracts until protected merge triggers the first live publication; the runbook does not claim either package exists yet.
+Unverified or policy-blocked images must remain runner-local and must not receive a GHCR candidate tag, candidate registry digest, authoritative state, or Stage 5 handoff.
 
 The representative artifact is a test and supply-chain demonstration artifact.
 It is not the platform control plane, developer portal, or production workload.
@@ -44,7 +44,7 @@ candidate-<source-sha>-run-<workflow-run-id>-attempt-<workflow-run-attempt>
 ```
 
 Candidate references are non-authoritative.
-They may remain in the registry for forensic review if verification or policy fails.
+They may remain in the registry for forensic review only after local policy has passed and the candidate has been published as verified public staging.
 Including the workflow run attempt prevents a later rerun from reusing the same candidate tag and overwriting the previous failed-attempt pointer.
 
 The authoritative source-revision tag format is:
@@ -60,10 +60,11 @@ The Stage 5 handoff must reference the authoritative repository only; it must ne
 
 ## Digest Continuity
 
-Successful publication requires these digests to be equal:
+Local image IDs and Docker archive SHA-256 values are local execution evidence only. They are not OCI registry digests and must not be used as Stage 5 deployable identity.
+
+Successful authoritative publication requires these registry-domain digests to be equal:
 
 ```text
-build metadata digest
 candidate registry digest
 verified scan target digest
 authoritative tag digest
@@ -73,10 +74,9 @@ handoff digest
 Candidate and authoritative repositories intentionally differ.
 Digest equality crosses the repository boundary; repository string equality is not part of the digest continuity invariant.
 
-Before promotion, candidate verification may prove only:
+Before authoritative promotion, candidate verification proves only:
 
 ```text
-build metadata digest
 candidate registry digest
 verified scan target digest
 ```
@@ -110,24 +110,24 @@ The handoff is output only.
 It must not mutate `services/**`, `PlatformService` files, generated values, Argo CD Applications, or environment configuration.
 
 Trusted publication evidence should be retained for 90 days in the future workflow.
-Failure evidence for a validated policy-blocked candidate may also be retained for 90 days.
+Failure evidence for a local policy-blocked build may also be retained for 90 days, but it must not contain a GHCR candidate digest because no candidate was published.
 
 ## Visibility
 
-Public GHCR visibility is recommended for the representative fixture because Stage 5 does not currently expose complete self-service private-registry authentication.
-The candidate quarantine package must remain private.
-The authoritative package is expected to be created private initially, then made public only after successful publication, package linkage audit, digest equality proof, and explicit governance approval.
-Under the current GHCR visibility model, making the authoritative package public is a deliberate irreversible action.
-Visibility is not changed by this implementation. Public visibility remains a later explicit governance operation after private publication evidence is reviewed.
+The candidate package is expected to be public after publication because it is verified public staging from a public repository workflow.
+The authoritative package is also expected to be public, but creating or updating it is isolated behind the protected `authoritative-publication` GitHub Environment.
+The workflow references that Environment, but this repository change does not create or configure it. The Environment must exist and be protected before merge.
+The workflow must not mutate package visibility, add a personal access token, or rely on a helper repository to recreate private quarantine.
 
 ## Stage 6D2 Live Proof Pending
 
-The protected-main workflow authenticates with `GITHUB_TOKEN`, pushes candidates only to the candidate quarantine repository, verifies the candidate digest, runs SBOM and vulnerability policy on the exact candidate artifact, and promotes only a policy-approved digest to the authoritative repository.
+The protected-main workflow performs one local application build with BuildKit SBOM/provenance disabled, runs runtime proof, Syft SBOM generation, Grype vulnerability scanning, and policy evaluation against the local artifact, and only then authenticates to GHCR for candidate publication.
 
-The first live candidate publication must prove the candidate package exists, is linked to this repository, and remains private.
-If the candidate package is not private, publication must stop before authoritative promotion.
+The first live recovered candidate publication must prove the candidate package exists, is linked to this repository, and is public verified staging.
+If local policy fails, candidate publication must not occur.
 
-The first authoritative publication must prove the authoritative package appears only after policy pass, is linked to this repository, and resolves to the same digest as the verified candidate before any handoff is emitted.
+The authoritative job must not run until the `authoritative-publication` Environment is explicitly approved.
+The first authoritative publication must prove the authoritative package is linked to this repository, resolves to the same digest as the verified candidate, is anonymously pullable by digest, and only then emits the Stage 5 handoff.
 Promotion remains unproven until protected merge proves registry behavior, but the required boundary is:
 
 ```text
@@ -138,9 +138,9 @@ candidate_repository@verified_digest
 ```
 
 Publication runs use one trusted publication concurrency group.
-The workflow uses `queue: max` so multiple pending relevant publication runs are retained up to the platform queue limit instead of replacing earlier pending runs.
+The workflow uses workflow-level `queue: max` so the full candidate-to-authoritative transaction, including the Environment approval wait, is serialized.
 The workflow does not use cancel-in-progress behavior for registry mutation.
-The workflow does not claim arbitrary queue capacity or strict Git source-revision ordering beyond GitHub's documented concurrency queue semantics; source-SHA-scoped tags and digest verification keep independent main publications from overwriting one another.
+The tradeoff is that irrelevant protected-main pushes may briefly wait behind a publication transaction before scope classification exits; this is preferred over allowing overlapping registry mutation while an authoritative approval is pending.
 
 ## Boundaries
 

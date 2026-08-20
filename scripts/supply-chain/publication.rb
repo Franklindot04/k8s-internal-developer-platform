@@ -17,7 +17,8 @@ module SupplyChainPublication
   HANDOFF_KIND = 'TrustedImageReference'
   PUBLICATION_MANIFEST = 'publication-evidence.json'
   HANDOFF_FILE = 'image-reference.json'
-  ALLOWED_STATUSES = %w[candidate blocked published existing].freeze
+  ALLOWED_STATUSES = %w[local_blocked candidate published existing].freeze
+  LOCAL_STATES = %w[LOCAL_VERIFIED LOCAL_BLOCKED EXISTING_PUBLICATION].freeze
   PASS = 'PASS'
   FAIL = 'FAIL'
 
@@ -139,9 +140,18 @@ module SupplyChainPublication
     'RERUN_EXISTING_MISMATCH'
   end
 
-  def validate_partial_continuity!(build_metadata_digest:, candidate_registry_digest:, verified_scan_target_digest:)
+  def validate_local_image_id!(value)
+    validate_digest!(value)
+  end
+
+  def validate_local_state!(value)
+    fail_contract('invalid local verification state') unless LOCAL_STATES.include?(value)
+
+    value
+  end
+
+  def validate_candidate_continuity!(candidate_registry_digest:, verified_scan_target_digest:)
     digests = [
-      validate_digest!(build_metadata_digest),
       validate_digest!(candidate_registry_digest),
       validate_digest!(verified_scan_target_digest)
     ]
@@ -151,14 +161,12 @@ module SupplyChainPublication
   end
 
   def validate_complete_continuity!(
-    build_metadata_digest:,
     candidate_registry_digest:,
     verified_scan_target_digest:,
     authoritative_tag_digest:,
     handoff_digest:
   )
     digests = [
-      validate_digest!(build_metadata_digest),
       validate_digest!(candidate_registry_digest),
       validate_digest!(verified_scan_target_digest),
       validate_digest!(authoritative_tag_digest),
@@ -212,9 +220,6 @@ module SupplyChainPublication
     status = input.fetch(:status)
     fail_contract('invalid publication status') unless ALLOWED_STATUSES.include?(status)
 
-    candidate_digest = validate_digest!(input.fetch(:candidate_digest))
-    scan_digest = validate_digest!(input.fetch(:scan_target_digest))
-    build_digest = validate_digest!(input.fetch(:build_metadata_digest))
     policy_decision = input.fetch(:policy_decision)
     fail_contract('policy decision must be PASS or FAIL') unless [PASS, FAIL].include?(policy_decision)
 
@@ -234,17 +239,13 @@ module SupplyChainPublication
       'registry' => {
         'host' => REGISTRY_HOST
       },
-      'build' => {
-        'metadata_digest' => build_digest
+      'local' => {
+        'state' => validate_local_state!(input.fetch(:local_state)),
+        'image_id' => validate_local_image_id!(input.fetch(:local_image_id)),
+        'archive_sha256' => validate_sha256_hex!(input.fetch(:local_archive_sha256))
       },
-      'candidate' => {
-        'repository' => candidate_repository,
-        'tag' => candidate_tag(source_revision, workflow_run_id, workflow_run_attempt),
-        'digest' => candidate_digest
-      },
-      'verification' => {
-        'scan_target_digest' => scan_digest
-      },
+      'candidate' => candidate_manifest_for(input, source_revision, workflow_run_id, workflow_run_attempt, candidate_repository, status),
+      'verification' => verification_manifest_for(input, status),
       'tools' => {
         'syft' => {
           'version' => normalize_version(input.fetch(:syft_version)),
@@ -283,11 +284,41 @@ module SupplyChainPublication
         'digest' => authoritative_digest
       }
     elsif input.key?(:authoritative_digest) || input.key?(:authoritative_tag) || input.key?(:authoritative_repository)
-      fail_contract('candidate or blocked publication must not include authoritative fields')
+      fail_contract('candidate or local-blocked publication must not include authoritative fields')
     end
 
     validate_manifest_object!(manifest, versions_file: versions_file)
     manifest
+  end
+
+  def candidate_manifest_for(input, source_revision, workflow_run_id, workflow_run_attempt, candidate_repository, status)
+    base = {
+      'repository' => candidate_repository,
+      'tag' => candidate_tag(source_revision, workflow_run_id, workflow_run_attempt),
+      'role' => 'VERIFIED_PUBLIC_STAGING',
+      'expected_visibility' => 'public'
+    }
+
+    return base.merge('published' => false) if %w[local_blocked existing].include?(status)
+
+    base.merge(
+      'published' => true,
+      'digest' => validate_digest!(input.fetch(:candidate_digest))
+    )
+  end
+
+  def verification_manifest_for(input, status)
+    if status == 'local_blocked'
+      {
+        'scan_target_type' => 'LOCAL_ARCHIVE_SHA256',
+        'scan_target_sha256' => validate_sha256_hex!(input.fetch(:local_archive_sha256))
+      }
+    else
+      {
+        'scan_target_type' => 'OCI_REGISTRY_DIGEST',
+        'scan_target_digest' => validate_digest!(input.fetch(:scan_target_digest))
+      }
+    end
   end
 
   def write_manifest(path, manifest)
@@ -315,7 +346,7 @@ module SupplyChainPublication
     source = manifest.fetch('source')
     workflow = manifest.fetch('workflow')
     registry = manifest.fetch('registry')
-    build = manifest.fetch('build')
+    local = manifest.fetch('local')
     candidate = manifest.fetch('candidate')
     verification = manifest.fetch('verification')
     tools = manifest.fetch('tools')
@@ -338,14 +369,11 @@ module SupplyChainPublication
       workflow_run_attempt
     )
 
-    build_digest = validate_digest!(build.fetch('metadata_digest'))
-    candidate_digest = validate_digest!(candidate.fetch('digest'))
-    scan_digest = validate_digest!(verification.fetch('scan_target_digest'))
-    validate_partial_continuity!(
-      build_metadata_digest: build_digest,
-      candidate_registry_digest: candidate_digest,
-      verified_scan_target_digest: scan_digest
-    )
+    local_state = validate_local_state!(local.fetch('state'))
+    validate_local_image_id!(local.fetch('image_id'))
+    local_archive_sha256 = validate_sha256_hex!(local.fetch('archive_sha256'))
+    fail_contract('candidate must declare verified public staging role') unless candidate.fetch('role') == 'VERIFIED_PUBLIC_STAGING'
+    fail_contract('candidate expected visibility must be public') unless candidate.fetch('expected_visibility') == 'public'
 
     fail_contract('Syft version does not match pin') unless normalize_version(tools.fetch('syft').fetch('version')) == normalize_version(versions.fetch('SYFT_VERSION'))
     fail_contract('Grype version does not match pin') unless normalize_version(tools.fetch('grype').fetch('version')) == normalize_version(versions.fetch('GRYPE_VERSION'))
@@ -366,14 +394,33 @@ module SupplyChainPublication
     fail_contract('invalid publication status') unless ALLOWED_STATUSES.include?(status)
 
     case status
+    when 'local_blocked'
+      fail_contract('candidate state must not include authoritative fields') if manifest.key?('authoritative')
+      fail_contract('local blocked state must not publish candidate digest') if candidate.key?('digest')
+      fail_contract('local blocked state must mark candidate unpublished') unless candidate.fetch('published') == false
+      fail_contract('local blocked state requires LOCAL_BLOCKED') unless local_state == 'LOCAL_BLOCKED'
+      fail_contract('local blocked scan target mismatch') unless verification.fetch('scan_target_type') == 'LOCAL_ARCHIVE_SHA256'
+      fail_contract('local blocked scan target must match local archive') unless verification.fetch('scan_target_sha256') == local_archive_sha256
+      fail_contract('local blocked state requires policy FAIL') unless decision == FAIL
     when 'candidate'
       fail_contract('candidate state must not include authoritative fields') if manifest.key?('authoritative')
       fail_contract('candidate state requires policy PASS') unless decision == PASS
-    when 'blocked'
-      fail_contract('blocked state must not include authoritative fields') if manifest.key?('authoritative')
-      fail_contract('blocked state requires policy FAIL') unless decision == FAIL
-    when 'published', 'existing'
+      fail_contract('candidate state requires LOCAL_VERIFIED') unless local_state == 'LOCAL_VERIFIED'
+      fail_contract('candidate state must mark candidate published') unless candidate.fetch('published') == true
+      candidate_digest = validate_digest!(candidate.fetch('digest'))
+      scan_digest = validate_digest!(verification.fetch('scan_target_digest'))
+      fail_contract('candidate scan target must be registry digest') unless verification.fetch('scan_target_type') == 'OCI_REGISTRY_DIGEST'
+      validate_candidate_continuity!(
+        candidate_registry_digest: candidate_digest,
+        verified_scan_target_digest: scan_digest
+      )
+    when 'published'
       fail_contract('published state requires policy PASS') unless decision == PASS
+      fail_contract('published state requires LOCAL_VERIFIED') unless local_state == 'LOCAL_VERIFIED'
+      fail_contract('published state must mark candidate published') unless candidate.fetch('published') == true
+      candidate_digest = validate_digest!(candidate.fetch('digest'))
+      scan_digest = validate_digest!(verification.fetch('scan_target_digest'))
+      fail_contract('published scan target must be registry digest') unless verification.fetch('scan_target_type') == 'OCI_REGISTRY_DIGEST'
       authoritative = manifest.fetch('authoritative')
       authoritative_repository = validate_authoritative_repository!(authoritative.fetch('repository'))
       validate_repository_separation!(
@@ -383,8 +430,28 @@ module SupplyChainPublication
       fail_contract('authoritative tag mismatch') unless authoritative.fetch('tag') == authoritative_tag(source_revision)
       authoritative_digest = validate_digest!(authoritative.fetch('digest'))
       validate_complete_continuity!(
-        build_metadata_digest: build_digest,
         candidate_registry_digest: candidate_digest,
+        verified_scan_target_digest: scan_digest,
+        authoritative_tag_digest: authoritative_digest,
+        handoff_digest: authoritative_digest
+      )
+    when 'existing'
+      fail_contract('existing state requires policy PASS') unless decision == PASS
+      fail_contract('existing state requires EXISTING_PUBLICATION') unless local_state == 'EXISTING_PUBLICATION'
+      fail_contract('existing state must not publish a candidate') unless candidate.fetch('published') == false
+      fail_contract('existing state must not include candidate digest') if candidate.key?('digest')
+      fail_contract('existing scan target must be registry digest') unless verification.fetch('scan_target_type') == 'OCI_REGISTRY_DIGEST'
+      scan_digest = validate_digest!(verification.fetch('scan_target_digest'))
+      authoritative = manifest.fetch('authoritative')
+      authoritative_repository = validate_authoritative_repository!(authoritative.fetch('repository'))
+      validate_repository_separation!(
+        candidate_repository: candidate_repository,
+        authoritative_repository: authoritative_repository
+      )
+      fail_contract('authoritative tag mismatch') unless authoritative.fetch('tag') == authoritative_tag(source_revision)
+      authoritative_digest = validate_digest!(authoritative.fetch('digest'))
+      validate_complete_continuity!(
+        candidate_registry_digest: scan_digest,
         verified_scan_target_digest: scan_digest,
         authoritative_tag_digest: authoritative_digest,
         handoff_digest: authoritative_digest
