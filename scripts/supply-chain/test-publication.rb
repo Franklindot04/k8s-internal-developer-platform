@@ -395,6 +395,75 @@ class PublicationContractTest < Minitest::Test
     end
   end
 
+  def test_anonymous_token_403_denied_exact_scope_is_public_unobservable
+    result = SupplyChainPublication.classify_registry_token_response(
+      http_status: '403',
+      body: JSON.generate('errors' => [{ 'code' => 'DENIED' }]),
+      mode: 'anonymous'
+    )
+
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_UNOBSERVABLE, result.fetch('classification'))
+    assert_equal('DENIED', result.fetch('registry_error_code'))
+  end
+
+  def test_anonymous_token_403_html_or_unknown_code_fails_closed
+    html = SupplyChainPublication.classify_registry_token_response(
+      http_status: '403',
+      body: '<html>denied</html>',
+      mode: 'anonymous'
+    )
+    unknown = SupplyChainPublication.classify_registry_token_response(
+      http_status: '403',
+      body: JSON.generate('errors' => [{ 'code' => 'UNEXPECTED' }]),
+      mode: 'anonymous'
+    )
+
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_MALFORMED, html.fetch('classification'))
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_DENIED, unknown.fetch('classification'))
+  end
+
+  def test_authenticated_token_403_denied_fails_closed
+    result = SupplyChainPublication.classify_registry_token_response(
+      http_status: '403',
+      body: JSON.generate('errors' => [{ 'code' => 'DENIED' }]),
+      mode: 'authenticated'
+    )
+
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_DENIED, result.fetch('classification'))
+  end
+
+  def test_token_failures_fail_closed
+    {
+      '401' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_AUTH_FAILURE,
+      '429' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_RATE_LIMITED,
+      '500' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_SERVER_FAILURE,
+      '000' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_NETWORK_FAILURE
+    }.each do |status, expected|
+      result = SupplyChainPublication.classify_registry_token_response(
+        http_status: status,
+        body: JSON.generate('errors' => [{ 'code' => 'DENIED' }]),
+        mode: 'anonymous'
+      )
+      assert_equal(expected, result.fetch('classification'))
+    end
+  end
+
+  def test_token_success_requires_token_value
+    present = SupplyChainPublication.classify_registry_token_response(
+      http_status: '200',
+      body: JSON.generate('token' => 'synthetic'),
+      mode: 'anonymous'
+    )
+    missing = SupplyChainPublication.classify_registry_token_response(
+      http_status: '200',
+      body: JSON.generate('not_token' => 'synthetic'),
+      mode: 'anonymous'
+    )
+
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_EXISTS, present.fetch('classification'))
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_AUTH_FAILURE, missing.fetch('classification'))
+  end
+
   def test_public_manifest_404_unknown_or_html_fails_closed
     unknown = SupplyChainPublication.classify_registry_manifest_response(
       http_status: '404',
@@ -474,7 +543,8 @@ class PublicationContractTest < Minitest::Test
     [
       SupplyChainPublication::PUBLIC_AUTHORITATIVE_AUTH_FAILURE,
       SupplyChainPublication::PUBLIC_AUTHORITATIVE_NETWORK_FAILURE,
-      SupplyChainPublication::PUBLIC_AUTHORITATIVE_MALFORMED
+      SupplyChainPublication::PUBLIC_AUTHORITATIVE_MALFORMED,
+      SupplyChainPublication::PUBLIC_AUTHORITATIVE_UNOBSERVABLE
     ].each do |classification|
       state = SupplyChainPublication.pre_promotion_recheck_state(
         classification: classification,
