@@ -66,6 +66,7 @@ write_result() {
     printf 'candidate_tag=%s\n' "${CANDIDATE_TAG:-}"
     printf 'candidate_digest=%s\n' "${CANDIDATE_REGISTRY_DIGEST:-}"
     printf 'candidate_visibility=%s\n' "${CANDIDATE_VISIBILITY:-}"
+    printf 'local_policy_decision=%s\n' "${LOCAL_POLICY_DECISION:-}"
     printf 'policy_decision=%s\n' "${POLICY_DECISION:-}"
     printf 'authoritative_repository=%s\n' "$AUTHORITATIVE_REPOSITORY"
     printf 'authoritative_tag=%s\n' "${AUTHORITATIVE_TAG:-}"
@@ -128,6 +129,11 @@ manifest_media_type() {
   jq -r '.mediaType // empty' "$1"
 }
 
+docker_login() {
+  printf '%s\n' "${GITHUB_TOKEN:?}" | docker login "$REGISTRY_HOST" -u "${GITHUB_ACTOR:?}" --password-stdin >/dev/null
+  LOGIN_ATTEMPTED="true"
+}
+
 verify_package_metadata() {
   local encoded_package="$1"
   local expected_visibility="$2"
@@ -162,26 +168,43 @@ install_evidence_tools() {
 
 write_runtime_proof() {
   local image_ref="$1"
-  local output="$WORK_DIR/runtime-proof.json"
+  local output="$2"
 
   bash scripts/supply-chain/fixture.sh smoke-image "$image_ref"
-  printf '{"health":"PASS","runtime_user":"65532:65532","graceful_shutdown":"PASS","exit_code":0}\n' >"$output"
+  printf '{"health":"PASS","expected_response":"PASS","runtime_user":"65532:65532","non_root":"PASS","graceful_shutdown":"PASS","exit_code":0,"cleanup":"PASS"}\n' >"$output"
 }
 
 generate_sbom_and_vulnerability() {
   local archive="$1"
+  local prefix="$2"
 
-  syft "docker-archive:$(basename "$archive")" -o cyclonedx-json="$WORK_DIR/sbom.cdx.json" -o syft-json="$WORK_DIR/sbom.syft.json"
-  grype "docker-archive:$(basename "$archive")" -o json >"$WORK_DIR/vulnerabilities.json"
+  syft "docker-archive:$(basename "$archive")" -o cyclonedx-json="$WORK_DIR/${prefix}-sbom.cdx.json" -o syft-json="$WORK_DIR/${prefix}-sbom.syft.json"
+  grype "docker-archive:$(basename "$archive")" -o json >"$WORK_DIR/${prefix}-vulnerabilities.json"
 
   set +e
-  ruby scripts/supply-chain/evaluate-vulnerabilities.rb "$WORK_DIR/vulnerabilities.json" "$WORK_DIR/policy-result.json"
+  ruby scripts/supply-chain/evaluate-vulnerabilities.rb "$WORK_DIR/${prefix}-vulnerabilities.json" "$WORK_DIR/${prefix}-policy-result.json"
   local policy_exit="$?"
   set -e
 
-  POLICY_DECISION="$(jq -r '.decision // empty' "$WORK_DIR/policy-result.json")"
-  [ "$POLICY_DECISION" = "PASS" ] || [ "$POLICY_DECISION" = "FAIL" ] || fail "vulnerability policy did not produce a valid decision"
-  [ "$policy_exit" -eq 0 ] || [ "$POLICY_DECISION" = "FAIL" ] || fail "vulnerability policy evaluator failed"
+  local decision=""
+  decision="$(jq -r '.decision // empty' "$WORK_DIR/${prefix}-policy-result.json")"
+  [ "$decision" = "PASS" ] || [ "$decision" = "FAIL" ] || fail "vulnerability policy did not produce a valid decision"
+  [ "$policy_exit" -eq 0 ] || [ "$decision" = "FAIL" ] || fail "vulnerability policy evaluator failed"
+
+  if [ "$prefix" = "local" ]; then
+    LOCAL_POLICY_DECISION="$decision"
+  else
+    POLICY_DECISION="$decision"
+  fi
+}
+
+copy_evidence_set() {
+  local prefix="$1"
+
+  cp "$WORK_DIR/${prefix}-sbom.cdx.json" "$WORK_DIR/sbom.cdx.json"
+  cp "$WORK_DIR/${prefix}-sbom.syft.json" "$WORK_DIR/sbom.syft.json"
+  cp "$WORK_DIR/${prefix}-vulnerabilities.json" "$WORK_DIR/vulnerabilities.json"
+  cp "$WORK_DIR/${prefix}-policy-result.json" "$WORK_DIR/policy-result.json"
 }
 
 verify_artifact_size() {
@@ -193,11 +216,13 @@ verify_artifact_size() {
 
 build_publication_evidence() {
   local status="$1"
-  local authoritative_digest="${2:-}"
+  local local_state="$2"
+  local authoritative_digest="${3:-}"
   local evidence_path="$WORK_DIR/publication-evidence.json"
   local handoff_path="$WORK_DIR/image-reference.json"
 
   PUBLICATION_STATUS="$status" \
+    LOCAL_STATE="$local_state" \
     AUTHORITATIVE_TAG_DIGEST="$authoritative_digest" \
     CYCLONEDX_PATH="$WORK_DIR/sbom.cdx.json" \
     SYFT_JSON_PATH="$WORK_DIR/sbom.syft.json" \
@@ -206,16 +231,19 @@ build_publication_evidence() {
     PUBLICATION_EVIDENCE_PATH="$evidence_path" \
     HANDOFF_PATH="$handoff_path" \
     ruby -r ./scripts/supply-chain/publication.rb -e '
+    status = ENV.fetch("PUBLICATION_STATUS")
     input = {
       source_revision: ENV.fetch("SOURCE_REVISION"),
       workflow_run_id: ENV.fetch("WORKFLOW_RUN_ID"),
       workflow_run_attempt: ENV.fetch("WORKFLOW_RUN_ATTEMPT"),
-      status: ENV.fetch("PUBLICATION_STATUS"),
+      status: status,
       candidate_repository: SupplyChainPublication::CANDIDATE_REPOSITORY,
       authoritative_repository: SupplyChainPublication::AUTHORITATIVE_REPOSITORY,
-      build_metadata_digest: ENV.fetch("BUILD_METADATA_DIGEST"),
-      candidate_digest: ENV.fetch("CANDIDATE_REGISTRY_DIGEST"),
-      scan_target_digest: ENV.fetch("VERIFIED_SCAN_TARGET_DIGEST"),
+      local_state: ENV.fetch("LOCAL_STATE"),
+      local_image_id: ENV.fetch("LOCAL_IMAGE_ID"),
+      local_archive_sha256: ENV.fetch("LOCAL_ARCHIVE_SHA256"),
+      candidate_digest: ENV["CANDIDATE_REGISTRY_DIGEST"],
+      scan_target_digest: ENV["VERIFIED_SCAN_TARGET_DIGEST"],
       authoritative_digest: ENV["AUTHORITATIVE_TAG_DIGEST"],
       syft_version: ENV.fetch("SYFT_VERSION_ACTUAL"),
       grype_version: ENV.fetch("GRYPE_VERSION_ACTUAL"),
@@ -230,11 +258,13 @@ build_publication_evidence() {
       policy_result_sha256: SupplyChainPublication.sha256_file(ENV.fetch("POLICY_RESULT_PATH")),
       policy_decision: ENV.fetch("POLICY_DECISION")
     }
-    input.delete(:authoritative_repository) unless %w[published existing].include?(input.fetch(:status))
-    input.delete(:authoritative_digest) unless %w[published existing].include?(input.fetch(:status))
+    input.delete(:candidate_digest) if %w[local_blocked existing].include?(status)
+    input.delete(:scan_target_digest) if status == "local_blocked"
+    input.delete(:authoritative_repository) unless %w[published existing].include?(status)
+    input.delete(:authoritative_digest) unless %w[published existing].include?(status)
     manifest = SupplyChainPublication.build_manifest(input, versions_file: "scripts/supply-chain/versions.env")
     SupplyChainPublication.write_manifest(ENV.fetch("PUBLICATION_EVIDENCE_PATH"), manifest)
-    if %w[published existing].include?(input.fetch(:status))
+    if %w[published existing].include?(status)
       handoff = SupplyChainPublication.build_handoff(manifest, SupplyChainPublication.sha256_file(ENV.fetch("PUBLICATION_EVIDENCE_PATH")))
       File.write(ENV.fetch("HANDOFF_PATH"), JSON.pretty_generate(handoff) + "\n")
       SupplyChainPublication.validate_handoff_object!(handoff, manifest)
@@ -247,36 +277,26 @@ build_publication_evidence() {
   fi
 }
 
-prepare_success_artifact() {
+prepare_artifact() {
+  local include_handoff="${1:-false}"
   local stage="$WORK_DIR/artifact"
   mkdir -p "$stage"
   cp "$WORK_DIR/publication-evidence.json" "$stage/"
   cp "$WORK_DIR/publication-evidence.json.sha256" "$stage/"
-  cp "$WORK_DIR/image-reference.json" "$stage/"
   cp "$WORK_DIR/sbom.cdx.json" "$stage/"
   cp "$WORK_DIR/sbom.syft.json" "$stage/"
   cp "$WORK_DIR/vulnerabilities.json" "$stage/"
   cp "$WORK_DIR/policy-result.json" "$stage/"
-  cp "$WORK_DIR/runtime-proof.json" "$stage/"
-  cp "$WORK_DIR/build-metadata.json" "$stage/" 2>/dev/null || true
+  cp "$WORK_DIR/local-runtime-proof.json" "$stage/" 2>/dev/null || true
+  cp "$WORK_DIR/registry-runtime-proof.json" "$stage/" 2>/dev/null || true
+  cp "$WORK_DIR/runtime-proof.json" "$stage/" 2>/dev/null || true
+  cp "$WORK_DIR/local-build-metadata.json" "$stage/" 2>/dev/null || true
+  cp "$WORK_DIR/local-image.json" "$stage/" 2>/dev/null || true
   cp "$WORK_DIR/candidate-manifest.json" "$stage/" 2>/dev/null || true
   cp "$WORK_DIR/authoritative-manifest.json" "$stage/" 2>/dev/null || true
-  find "$stage" -maxdepth 1 -type f -print0 | while IFS= read -r -d '' file; do
-    verify_artifact_size "$file"
-  done
-  EVIDENCE_UPLOAD_ALLOWED="true"
-}
-
-prepare_failure_artifact() {
-  local stage="$WORK_DIR/artifact"
-  mkdir -p "$stage"
-  cp "$WORK_DIR/publication-evidence.json" "$stage/"
-  cp "$WORK_DIR/publication-evidence.json.sha256" "$stage/"
-  cp "$WORK_DIR/sbom.cdx.json" "$stage/"
-  cp "$WORK_DIR/sbom.syft.json" "$stage/"
-  cp "$WORK_DIR/vulnerabilities.json" "$stage/"
-  cp "$WORK_DIR/policy-result.json" "$stage/"
-  cp "$WORK_DIR/runtime-proof.json" "$stage/"
+  if [ "$include_handoff" = "true" ]; then
+    cp "$WORK_DIR/image-reference.json" "$stage/"
+  fi
   find "$stage" -maxdepth 1 -type f -print0 | while IFS= read -r -d '' file; do
     verify_artifact_size "$file"
   done
@@ -294,102 +314,164 @@ pull_and_verify_exact_digest() {
   VERIFIED_SCAN_TARGET_DIGEST="$expected_digest"
 }
 
-scan_runtime_and_policy() {
+anonymous_pull_by_digest() {
   local digest_ref="$1"
-  local archive="$WORK_DIR/supply-chain-fixture.tar"
-
-  pull_and_verify_exact_digest "$digest_ref" "${2:?}"
-  write_runtime_proof "$digest_ref"
-  docker image save --output "$archive" "$digest_ref"
-  ARCHIVE_SHA256="$(sha256_file "$archive")"
-  (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$archive")
+  local anonymous_config="$WORK_DIR/anonymous-docker-config"
+  mkdir -p "$anonymous_config"
+  chmod 0700 "$anonymous_config"
+  DOCKER_CONFIG="$anonymous_config" docker pull "$digest_ref"
 }
 
-publish_first() {
-  PUBLICATION_MODE="first"
-  CANDIDATE_TAG="$(candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT")"
-  local candidate_ref="$CANDIDATE_REPOSITORY:$CANDIDATE_TAG"
-  local candidate_digest_ref=""
+record_tool_versions() {
+  SYFT_VERSION_ACTUAL="$(syft version -o json | jq -r '.version')"
+  GRYPE_VERSION_ACTUAL="$(grype version -o json | jq -r '.version')"
+  VULNERABILITY_DATABASE="$(grype db status -o json | jq -r '.built // .updated // .schemaVersion // "unknown"')"
+}
+
+build_local_candidate() {
+  local local_ref="$1"
+  local archive="$2"
 
   docker buildx build \
     --platform "$TARGET_PLATFORM" \
     --provenance=false \
     --sbom=false \
-    --push \
-    --tag "$candidate_ref" \
-    --metadata-file "$WORK_DIR/build-metadata.json" \
+    --load \
+    --tag "$local_ref" \
+    --metadata-file "$WORK_DIR/local-build-metadata.json" \
     tests/fixtures/supply-chain-fixture
 
-  BUILD_METADATA_DIGEST="$(jq -r '."containerimage.digest" // empty' "$WORK_DIR/build-metadata.json")"
-  validate_digest "$BUILD_METADATA_DIGEST"
+  LOCAL_IMAGE_ID="$(docker image inspect "$local_ref" --format '{{.Id}}')"
+  validate_digest "$LOCAL_IMAGE_ID"
+  printf '{"local_image_id":"%s","identity_authority":"LOCAL_EXECUTION_EVIDENCE_ONLY"}\n' "$LOCAL_IMAGE_ID" >"$WORK_DIR/local-image.json"
+  write_runtime_proof "$local_ref" "$WORK_DIR/local-runtime-proof.json"
+  docker image save --output "$archive" "$local_ref"
+  LOCAL_ARCHIVE_SHA256="$(sha256_file "$archive")"
+}
+
+run_existing() {
+  PUBLICATION_MODE="existing"
+  CANDIDATE_TAG="$(candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT")"
+  AUTHORITATIVE_TAG_DIGEST="$(manifest_digest "$WORK_DIR/authoritative-precheck.json")"
+  validate_digest "$AUTHORITATIVE_TAG_DIGEST"
+  VERIFIED_SCAN_TARGET_DIGEST="$AUTHORITATIVE_TAG_DIGEST"
+  LOCAL_IMAGE_ID="$AUTHORITATIVE_TAG_DIGEST"
+  LOCAL_ARCHIVE_SHA256="$(printf '%s' "$AUTHORITATIVE_TAG_DIGEST" | sha256sum | awk '{ print $1 }')"
+  cp "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/authoritative-manifest.json"
+  cp "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/candidate-manifest.json"
+
+  docker_login
+  verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "public" "authoritative"
+  pull_and_verify_exact_digest "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST" "$AUTHORITATIVE_TAG_DIGEST"
+  anonymous_pull_by_digest "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST"
+  write_runtime_proof "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST" "$WORK_DIR/runtime-proof.json"
+  local archive="$WORK_DIR/existing-authoritative.tar"
+  docker image save --output "$archive" "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST"
+  LOCAL_ARCHIVE_SHA256="$(sha256_file "$archive")"
+  (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$archive" "registry")
+  copy_evidence_set "registry"
+  record_tool_versions
+  [ "$POLICY_DECISION" = "PASS" ] || fail "existing publication vulnerability policy did not pass"
+
+  build_publication_evidence "existing" "EXISTING_PUBLICATION" "$AUTHORITATIVE_TAG_DIGEST"
+  prepare_artifact "true"
+  PUBLICATION_STATUS="success"
+}
+
+run_candidate() {
+  PUBLICATION_MODE="candidate"
+  CANDIDATE_TAG="$(candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT")"
+  local local_ref="supply-chain-fixture-local:${SOURCE_REVISION}"
+  local candidate_ref="$CANDIDATE_REPOSITORY:$CANDIDATE_TAG"
+  local candidate_digest_ref=""
+  local local_archive="$WORK_DIR/local-supply-chain-fixture.tar"
+  local registry_archive="$WORK_DIR/registry-supply-chain-fixture.tar"
+
+  build_local_candidate "$local_ref" "$local_archive"
+  (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$local_archive" "local")
+  record_tool_versions
+
+  if [ "$LOCAL_POLICY_DECISION" = "FAIL" ]; then
+    POLICY_DECISION="FAIL"
+    copy_evidence_set "local"
+    build_publication_evidence "local_blocked" "LOCAL_BLOCKED"
+    prepare_artifact "false"
+    fail "local vulnerability policy blocked candidate publication"
+  fi
+  [ "$LOCAL_POLICY_DECISION" = "PASS" ] || fail "local vulnerability policy did not pass"
+
+  docker_login
+  docker tag "$local_ref" "$candidate_ref"
+  docker push "$candidate_ref"
 
   retry 10 inspect_registry_reference "$candidate_ref" "$WORK_DIR/candidate-manifest.json" "$WORK_DIR/candidate-inspect.err" || fail "candidate registry inspection failed"
   CANDIDATE_REGISTRY_DIGEST="$(manifest_digest "$WORK_DIR/candidate-manifest.json")"
   CANDIDATE_MEDIA_TYPE="$(manifest_media_type "$WORK_DIR/candidate-manifest.json")"
   validate_digest "$CANDIDATE_REGISTRY_DIGEST"
   [ -n "$CANDIDATE_MEDIA_TYPE" ] || fail "candidate manifest media type missing"
-  [ "$BUILD_METADATA_DIGEST" = "$CANDIDATE_REGISTRY_DIGEST" ] || fail "build metadata digest and candidate registry digest mismatch"
 
-  verify_package_metadata "$CANDIDATE_PACKAGE_NAME" "private" "candidate"
-
+  verify_package_metadata "$CANDIDATE_PACKAGE_NAME" "public" "candidate"
   candidate_digest_ref="$CANDIDATE_REPOSITORY@$CANDIDATE_REGISTRY_DIGEST"
-  scan_runtime_and_policy "$candidate_digest_ref" "$CANDIDATE_REGISTRY_DIGEST"
+  pull_and_verify_exact_digest "$candidate_digest_ref" "$CANDIDATE_REGISTRY_DIGEST"
+  write_runtime_proof "$candidate_digest_ref" "$WORK_DIR/registry-runtime-proof.json"
+  docker image save --output "$registry_archive" "$candidate_digest_ref"
+  (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$registry_archive" "registry")
+  copy_evidence_set "registry"
+  [ "$POLICY_DECISION" = "PASS" ] || fail "post-push vulnerability policy blocked authoritative publication"
 
-  SYFT_VERSION_ACTUAL="$(syft version -o json | jq -r '.version')"
-  GRYPE_VERSION_ACTUAL="$(grype version -o json | jq -r '.version')"
-  VULNERABILITY_DATABASE="$(grype db status -o json | jq -r '.built // .updated // .schemaVersion // "unknown"')"
+  build_publication_evidence "candidate" "LOCAL_VERIFIED"
+  prepare_artifact "false"
+  PUBLICATION_STATUS="success"
+}
 
-  if [ "$POLICY_DECISION" = "FAIL" ]; then
-    BUILD_METADATA_DIGEST="$CANDIDATE_REGISTRY_DIGEST"
-    build_publication_evidence "blocked"
-    prepare_failure_artifact
-    fail "vulnerability policy blocked authoritative publication"
-  fi
-  [ "$POLICY_DECISION" = "PASS" ] || fail "vulnerability policy did not pass"
+run_authoritative() {
+  PUBLICATION_MODE="authoritative"
+  local candidate_evidence="${TRUSTED_PUBLICATION_CANDIDATE_EVIDENCE:?}"
+  ruby scripts/supply-chain/validate-publication.rb validate-publication --publication "$candidate_evidence"
 
+  SOURCE_REVISION="$(jq -r '.source.revision' "$candidate_evidence")"
+  WORKFLOW_RUN_ID="$(jq -r '.workflow.run_id' "$candidate_evidence")"
+  WORKFLOW_RUN_ATTEMPT="$(jq -r '.workflow.run_attempt' "$candidate_evidence")"
+  CANDIDATE_TAG="$(jq -r '.candidate.tag' "$candidate_evidence")"
+  CANDIDATE_REGISTRY_DIGEST="$(jq -r '.candidate.digest' "$candidate_evidence")"
+  LOCAL_IMAGE_ID="$(jq -r '.local.image_id' "$candidate_evidence")"
+  LOCAL_ARCHIVE_SHA256="$(jq -r '.local.archive_sha256' "$candidate_evidence")"
+  POLICY_DECISION="$(jq -r '.vulnerability.decision' "$candidate_evidence")"
+  LOCAL_POLICY_DECISION="PASS"
+  AUTHORITATIVE_TAG="$(authoritative_tag "$SOURCE_REVISION")"
+  validate_source_revision "$SOURCE_REVISION"
+  validate_digest "$CANDIDATE_REGISTRY_DIGEST"
+  [ "$POLICY_DECISION" = "PASS" ] || fail "candidate evidence policy did not pass"
+
+  docker_login
   docker buildx imagetools create \
     --prefer-index=false \
     --metadata-file "$WORK_DIR/promotion-metadata.json" \
     --tag "$AUTHORITATIVE_REPOSITORY:$AUTHORITATIVE_TAG" \
-    "$candidate_digest_ref"
+    "$CANDIDATE_REPOSITORY@$CANDIDATE_REGISTRY_DIGEST"
 
   retry 10 inspect_registry_reference "$AUTHORITATIVE_REPOSITORY:$AUTHORITATIVE_TAG" "$WORK_DIR/authoritative-manifest.json" "$WORK_DIR/authoritative-inspect.err" || fail "authoritative registry inspection failed"
   AUTHORITATIVE_TAG_DIGEST="$(manifest_digest "$WORK_DIR/authoritative-manifest.json")"
   validate_digest "$AUTHORITATIVE_TAG_DIGEST"
   [ "$AUTHORITATIVE_TAG_DIGEST" = "$CANDIDATE_REGISTRY_DIGEST" ] || fail "authoritative digest differs from candidate digest"
 
-  verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "private" "authoritative"
-  build_publication_evidence "published" "$AUTHORITATIVE_TAG_DIGEST"
-  prepare_success_artifact
+  verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "public" "authoritative"
+  anonymous_pull_by_digest "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST"
+
+  cp "$candidate_evidence" "$WORK_DIR/candidate-publication-evidence.json"
+  cp "$(dirname "$candidate_evidence")/sbom.cdx.json" "$WORK_DIR/sbom.cdx.json"
+  cp "$(dirname "$candidate_evidence")/sbom.syft.json" "$WORK_DIR/sbom.syft.json"
+  cp "$(dirname "$candidate_evidence")/vulnerabilities.json" "$WORK_DIR/vulnerabilities.json"
+  cp "$(dirname "$candidate_evidence")/policy-result.json" "$WORK_DIR/policy-result.json"
+  cp "$(dirname "$candidate_evidence")/candidate-manifest.json" "$WORK_DIR/candidate-manifest.json"
+  record_tool_versions
+  VERIFIED_SCAN_TARGET_DIGEST="$CANDIDATE_REGISTRY_DIGEST"
+  build_publication_evidence "published" "LOCAL_VERIFIED" "$AUTHORITATIVE_TAG_DIGEST"
+  prepare_artifact "true"
   PUBLICATION_STATUS="success"
 }
 
-publish_existing() {
-  PUBLICATION_MODE="existing"
-  CANDIDATE_TAG="$(candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT")"
-
-  AUTHORITATIVE_TAG_DIGEST="$(manifest_digest "$WORK_DIR/authoritative-precheck.json")"
-  validate_digest "$AUTHORITATIVE_TAG_DIGEST"
-  BUILD_METADATA_DIGEST="$AUTHORITATIVE_TAG_DIGEST"
-  CANDIDATE_REGISTRY_DIGEST="$AUTHORITATIVE_TAG_DIGEST"
-  cp "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/authoritative-manifest.json"
-  cp "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/candidate-manifest.json"
-  printf '{"containerimage.digest":"%s","publication_mode":"existing"}\n' "$AUTHORITATIVE_TAG_DIGEST" >"$WORK_DIR/build-metadata.json"
-
-  verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "private" "authoritative"
-  scan_runtime_and_policy "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST" "$AUTHORITATIVE_TAG_DIGEST"
-
-  SYFT_VERSION_ACTUAL="$(syft version -o json | jq -r '.version')"
-  GRYPE_VERSION_ACTUAL="$(grype version -o json | jq -r '.version')"
-  VULNERABILITY_DATABASE="$(grype db status -o json | jq -r '.built // .updated // .schemaVersion // "unknown"')"
-  [ "$POLICY_DECISION" = "PASS" ] || fail "existing publication vulnerability policy did not pass"
-
-  build_publication_evidence "existing" "$AUTHORITATIVE_TAG_DIGEST"
-  prepare_success_artifact
-  PUBLICATION_STATUS="success"
-}
-
-publish() {
+initialize() {
   ROOT="$(git rev-parse --show-toplevel)"
   cd "$ROOT"
   WORK_DIR="${TRUSTED_PUBLICATION_WORK_DIR:-${RUNNER_TEMP:?}/trusted-publication}"
@@ -411,13 +493,14 @@ publish() {
   SOURCE_REVISION="${GITHUB_SHA:?}"
   WORKFLOW_RUN_ID="${GITHUB_RUN_ID:?}"
   WORKFLOW_RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:?}"
-  SOURCE_REF="${GITHUB_REF:?}"
   AUTHORITATIVE_TAG="$(authoritative_tag "$SOURCE_REVISION")"
   validate_source_revision "$SOURCE_REVISION"
   [ "$(git rev-parse HEAD)" = "$SOURCE_REVISION" ] || fail "checked-out HEAD does not match trusted source revision"
+}
 
-  printf '%s\n' "${GITHUB_TOKEN:?}" | docker login "$REGISTRY_HOST" -u "${GITHUB_ACTOR:?}" --password-stdin >/dev/null
-  LOGIN_ATTEMPTED="true"
+candidate_command() {
+  initialize
+  ARTIFACT_NAME="trusted-publication-candidate-${GITHUB_SHA:?}-${GITHUB_RUN_ID:?}-${GITHUB_RUN_ATTEMPT:?}"
   install_evidence_tools
 
   local precheck_status=0
@@ -427,19 +510,30 @@ publish() {
   set -e
 
   case "$precheck_status" in
-    0) publish_existing ;;
-    4) publish_first ;;
+    0) run_existing ;;
+    4) run_candidate ;;
     *) fail "authoritative pre-build check failed closed" ;;
   esac
 
-  log "trusted publication completed in $PUBLICATION_MODE mode"
+  log "trusted candidate completed in $PUBLICATION_MODE mode"
+}
+
+authoritative_command() {
+  initialize
+  ARTIFACT_NAME="trusted-publication-authoritative-${GITHUB_SHA:?}-${GITHUB_RUN_ID:?}-${GITHUB_RUN_ATTEMPT:?}"
+  install_evidence_tools
+  run_authoritative
+  log "authoritative publication completed"
 }
 
 case "${1:-}" in
-  publish)
-    publish
+  candidate)
+    candidate_command
+    ;;
+  authoritative)
+    authoritative_command
     ;;
   *)
-    fail "usage: $0 publish"
+    fail "usage: $0 {candidate|authoritative}"
     ;;
 esac

@@ -45,14 +45,15 @@ class TrustedPublicationWorkflowTest < Minitest::Test
 
     assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
     assert_equal({ 'contents' => 'read' }, jobs.fetch('scope').fetch('permissions'))
-    assert_equal({ 'contents' => 'read', 'packages' => 'write' }, jobs.fetch('trusted-publication').fetch('permissions'))
+    assert_equal({ 'contents' => 'read', 'packages' => 'write' }, jobs.fetch('candidate').fetch('permissions'))
+    assert_equal({ 'contents' => 'read', 'packages' => 'write' }, jobs.fetch('authoritative').fetch('permissions'))
     assert_equal({ 'contents' => 'read' }, jobs.fetch('final-report').fetch('permissions'))
     refute_match(/id-token:\s+write/, workflow_text)
     refute_match(/attestations:\s+write/, workflow_text)
   end
 
   def test_concurrency_governance
-    concurrency = workflow.fetch('jobs').fetch('trusted-publication').fetch('concurrency')
+    concurrency = workflow.fetch('concurrency')
 
     assert_equal('trusted-image-publication', concurrency.fetch('group'))
     assert_equal('max', concurrency.fetch('queue'))
@@ -64,6 +65,7 @@ class TrustedPublicationWorkflowTest < Minitest::Test
 
     assert_includes(refs, 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1')
     assert_includes(refs, 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
+    assert_includes(refs, 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
     refs.each do |ref|
       next if ref.start_with?('./')
 
@@ -75,11 +77,22 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_includes(runtime, CANDIDATE_REPOSITORY)
     assert_includes(runtime, AUTHORITATIVE_REPOSITORY)
     assert_includes(runtime, 'candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT"')
+    assert_includes(runtime, '--load')
     assert_includes(runtime, '--provenance=false')
     assert_includes(runtime, '--sbom=false')
     assert_includes(runtime, 'docker buildx imagetools create')
-    assert_includes(runtime, 'verify_package_metadata "$CANDIDATE_PACKAGE_NAME" "private" "candidate"')
-    assert_includes(runtime, 'verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "private" "authoritative"')
+    assert_includes(runtime, 'verify_package_metadata "$CANDIDATE_PACKAGE_NAME" "public" "candidate"')
+    assert_includes(runtime, 'verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "public" "authoritative"')
+    assert_includes(runtime, 'LOCAL_POLICY_DECISION')
+    assert_includes(runtime, 'docker push "$candidate_ref"')
+  end
+
+  def test_authoritative_publication_is_environment_gated
+    job = workflow.fetch('jobs').fetch('authoritative')
+
+    assert_equal('authoritative-publication', job.fetch('environment'))
+    assert_equal(['candidate'], job.fetch('needs'))
+    assert_includes(job.fetch('if'), "needs.candidate.outputs.mode == 'candidate'")
   end
 
   def test_runtime_forbids_visibility_mutation_and_secret_patterns
@@ -91,24 +104,22 @@ class TrustedPublicationWorkflowTest < Minitest::Test
   end
 
   def test_package_metadata_contract
-    candidate_private = { 'visibility' => 'private', 'repository' => { 'full_name' => SOURCE_REPOSITORY } }
     candidate_public = { 'visibility' => 'public', 'repository' => { 'full_name' => SOURCE_REPOSITORY } }
     candidate_unknown = { 'visibility' => '', 'repository' => { 'full_name' => SOURCE_REPOSITORY } }
-    wrong_linkage = { 'visibility' => 'private', 'repository' => { 'full_name' => 'other/repository' } }
+    wrong_linkage = { 'visibility' => 'public', 'repository' => { 'full_name' => 'other/repository' } }
     missing = {}
 
-    assert(package_metadata_valid?(candidate_private, 'private'))
-    refute(package_metadata_valid?(candidate_public, 'private'))
-    refute(package_metadata_valid?(candidate_unknown, 'private'))
-    refute(package_metadata_valid?(wrong_linkage, 'private'))
-    refute(package_metadata_valid?(missing, 'private'))
+    assert(package_metadata_valid?(candidate_public, 'public'))
+    refute(package_metadata_valid?(candidate_unknown, 'public'))
+    refute(package_metadata_valid?(wrong_linkage, 'public'))
+    refute(package_metadata_valid?(missing, 'public'))
   end
 
-  def test_authoritative_public_visibility_is_rejected_synthetically
-    authoritative_private = { 'visibility' => 'private', 'repository' => { 'full_name' => SOURCE_REPOSITORY } }
+  def test_authoritative_public_visibility_is_required_synthetically
     authoritative_public = { 'visibility' => 'public', 'repository' => { 'full_name' => SOURCE_REPOSITORY } }
+    authoritative_private = { 'visibility' => 'private', 'repository' => { 'full_name' => SOURCE_REPOSITORY } }
 
-    assert(package_metadata_valid?(authoritative_private, 'private'))
-    refute(package_metadata_valid?(authoritative_public, 'private'))
+    assert(package_metadata_valid?(authoritative_public, 'public'))
+    refute(package_metadata_valid?(authoritative_private, 'public'))
   end
 end
