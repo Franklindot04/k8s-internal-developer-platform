@@ -1,0 +1,12 @@
+{
+  "run_id": "32419923450",
+  "job_id": "96589525093",
+  "source_revision": "3d37aea826810bb10d0522ed8430b1181a0f1570",
+  "failed_command": "bash scripts/supply-chain/trusted-publication.sh candidate",
+  "observed_error": "[error] authoritative pre-build check failed closed",
+  "http_status": "403",
+  "body": {
+    "message": "authorization failure before definitive package absence"
+  },
+  "expected_classification": "AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE"
+}
