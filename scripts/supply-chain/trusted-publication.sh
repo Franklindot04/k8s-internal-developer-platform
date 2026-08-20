@@ -19,6 +19,7 @@ TOOLS_DIR=""
 REGISTRY_TOKEN_CLASSIFICATION=""
 REGISTRY_TOKEN_HTTP_STATUS=""
 REGISTRY_TOKEN_ERROR_CODE=""
+AUTHORITATIVE_STATE_CLASSIFICATION=""
 PUBLICATION_STATUS="failure"
 PUBLICATION_MODE="unknown"
 EVIDENCE_UPLOAD_ALLOWED="false"
@@ -262,7 +263,7 @@ registry_bearer_token() {
     REGISTRY_TOKEN_ERROR_CODE="$(printf '%s' "$token_classification_json" | jq -r '.registry_error_code')"
     emit_precheck_telemetry "token" "$REGISTRY_TOKEN_HTTP_STATUS" "$REGISTRY_TOKEN_ERROR_CODE" "$REGISTRY_TOKEN_CLASSIFICATION"
     if [ "$REGISTRY_TOKEN_CLASSIFICATION" = "PUBLIC_AUTHORITATIVE_UNOBSERVABLE" ]; then
-      return 5
+      return 0
     fi
     return 1
   fi
@@ -294,6 +295,7 @@ classify_authoritative_manifest_state() {
   local digest=""
   local url=""
 
+  AUTHORITATIVE_STATE_CLASSIFICATION=""
   url="$(registry_manifest_url)"
   http_status="$(registry_manifest_get "$url" "" "$manifest_body" "$manifest_headers" "$manifest_error")"
   if [ "$http_status" = "401" ]; then
@@ -302,11 +304,15 @@ classify_authoritative_manifest_state() {
     registry_bearer_token "$manifest_headers" "$mode" "$token_body" "$token_error"
     token_status="$?"
     set -e
-    if [ "$token_status" -eq 5 ]; then
+    if [ "$token_status" -ne 0 ]; then
       rm -f "$token_body" "$token_error"
-      return 5
+      return 1
     fi
-    [ "$token_status" -eq 0 ] || return 1
+    if [ "$REGISTRY_TOKEN_CLASSIFICATION" = "PUBLIC_AUTHORITATIVE_UNOBSERVABLE" ]; then
+      AUTHORITATIVE_STATE_CLASSIFICATION="$REGISTRY_TOKEN_CLASSIFICATION"
+      rm -f "$token_body" "$token_error"
+      return 0
+    fi
     auth_header="Authorization: Bearer $(jq -r '.token // .access_token' "$token_body")"
     rm -f "$token_body" "$token_error"
     http_status="$(registry_manifest_get "$url" "$auth_header" "$manifest_body" "$manifest_headers" "$manifest_error")"
@@ -319,17 +325,20 @@ classify_authoritative_manifest_state() {
 
   case "$classification" in
     PUBLIC_AUTHORITATIVE_EXISTS)
+      AUTHORITATIVE_STATE_CLASSIFICATION="$classification"
       AUTHORITATIVE_TAG_DIGEST="$digest"
       emit_precheck_telemetry "manifest" "$http_status" "$registry_error_code" "$classification"
       return 0
       ;;
     PUBLIC_AUTHORITATIVE_ABSENT)
+      AUTHORITATIVE_STATE_CLASSIFICATION="$classification"
       emit_precheck_telemetry "classification" "$http_status" "$registry_error_code" "$classification"
-      return 4
+      return 0
       ;;
     PUBLIC_AUTHORITATIVE_UNOBSERVABLE)
+      AUTHORITATIVE_STATE_CLASSIFICATION="$classification"
       emit_precheck_telemetry "classification" "$http_status" "$registry_error_code" "$classification"
-      return 5
+      return 0
       ;;
     *)
       emit_precheck_telemetry "classification" "$http_status" "$registry_error_code" "$classification"
@@ -624,10 +633,11 @@ run_candidate() {
   classify_authoritative_manifest_state "authenticated" "authenticated-source-check"
   authenticated_source_status="$?"
   set -e
-  case "$authenticated_source_status" in
-    4)
+  [ "$authenticated_source_status" -eq 0 ] || fail "authenticated authoritative source check failed closed"
+  case "$AUTHORITATIVE_STATE_CLASSIFICATION" in
+    PUBLIC_AUTHORITATIVE_ABSENT)
       ;;
-    0)
+    PUBLIC_AUTHORITATIVE_EXISTS)
       fail "authenticated authoritative source tag exists before candidate publication"
       ;;
     *)
@@ -684,8 +694,9 @@ run_authoritative() {
   classify_authoritative_manifest_state "authenticated" "authoritative-recheck"
   recheck_status="$?"
   set -e
-  case "$recheck_status" in
-    0)
+  [ "$recheck_status" -eq 0 ] || fail "authoritative pre-promotion recheck failed closed"
+  case "$AUTHORITATIVE_STATE_CLASSIFICATION" in
+    PUBLIC_AUTHORITATIVE_EXISTS)
       local preexisting_state=""
       preexisting_state="$(pre_promotion_recheck_state "PUBLIC_AUTHORITATIVE_EXISTS" "$AUTHORITATIVE_TAG_DIGEST" "$CANDIDATE_REGISTRY_DIGEST")"
       case "$preexisting_state" in
@@ -710,7 +721,7 @@ run_authoritative() {
         *) fail "authoritative pre-promotion recheck failed closed" ;;
       esac
       ;;
-    4)
+    PUBLIC_AUTHORITATIVE_ABSENT)
       ;;
     *) fail "authoritative pre-promotion recheck failed closed" ;;
   esac
@@ -780,10 +791,17 @@ candidate_command() {
   precheck_status="$?"
   set -e
 
-  case "$precheck_status" in
-    0) run_existing ;;
-    4) run_candidate ;;
-    5) run_candidate ;;
+  [ "$precheck_status" -eq 0 ] || fail "authoritative pre-build check failed closed"
+  case "$AUTHORITATIVE_STATE_CLASSIFICATION" in
+    PUBLIC_AUTHORITATIVE_EXISTS) run_existing ;;
+    PUBLIC_AUTHORITATIVE_ABSENT)
+      printf '[precheck] classification=%s next_stage=local-quarantine\n' "$AUTHORITATIVE_STATE_CLASSIFICATION" >&2
+      run_candidate
+      ;;
+    PUBLIC_AUTHORITATIVE_UNOBSERVABLE)
+      printf '[precheck] classification=%s next_stage=local-quarantine\n' "$AUTHORITATIVE_STATE_CLASSIFICATION" >&2
+      run_candidate
+      ;;
     *) fail "authoritative pre-build check failed closed" ;;
   esac
 
