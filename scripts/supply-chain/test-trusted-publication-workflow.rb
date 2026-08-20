@@ -3,6 +3,7 @@
 
 require 'minitest/autorun'
 require 'open3'
+require 'tmpdir'
 require 'yaml'
 
 require_relative 'publication'
@@ -32,6 +33,10 @@ class TrustedPublicationWorkflowTest < Minitest::Test
 
   def run_bash(script)
     Open3.capture3('bash', '-c', script)
+  end
+
+  def repo_root
+    @repo_root ||= File.expand_path('../..', __dir__)
   end
 
   def package_metadata_valid?(object, expected_visibility)
@@ -235,6 +240,54 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_equal(
       "PUBLIC_UNOBSERVABLE\nLOCAL_BUILD\nLOCAL_POLICY_PASS\nAUTHENTICATED_SOURCE_CHECK\nCANDIDATE_PUSH\n",
       stdout
+    )
+  end
+
+  def test_vulnerability_evaluator_is_repo_anchored_for_quarantine_cwd
+    assert_includes(runtime, 'REPO_ROOT=')
+    assert_includes(runtime, 'repo_path scripts/supply-chain/evaluate-vulnerabilities.rb')
+    refute_includes(runtime, 'ruby scripts/supply-chain/evaluate-vulnerabilities.rb')
+
+    Dir.mktmpdir do |dir|
+      report = File.join(repo_root, 'tests/fixtures/supply-chain-policy/no-findings.json')
+      output = File.join(dir, 'local-policy-result.json')
+      helper = File.join(repo_root, 'scripts/supply-chain/evaluate-vulnerabilities.rb')
+      stdout, stderr, status = Open3.capture3('ruby', helper, report, output, chdir: dir)
+
+      assert(status.success?, stderr)
+      assert_includes(stdout, '[ok] vulnerability policy decision: PASS')
+      assert(File.file?(output), 'policy output should remain in the quarantine workspace')
+      refute(File.exist?(File.join(repo_root, 'local-policy-result.json')))
+    end
+  end
+
+  def test_cwd_relative_evaluator_path_reproduces_live_failure
+    Dir.mktmpdir do |dir|
+      _stdout, stderr, status = Open3.capture3('ruby', 'scripts/supply-chain/evaluate-vulnerabilities.rb', chdir: dir)
+
+      refute(status.success?)
+      assert_includes(stderr, 'No such file or directory')
+      assert_includes(stderr, 'scripts/supply-chain/evaluate-vulnerabilities.rb')
+    end
+  end
+
+  def test_missing_anchored_evaluator_fails_closed
+    Dir.mktmpdir do |dir|
+      missing_helper = File.join(dir, 'missing-evaluate-vulnerabilities.rb')
+      report = File.join(repo_root, 'tests/fixtures/supply-chain-policy/no-findings.json')
+      output = File.join(dir, 'local-policy-result.json')
+      _stdout, stderr, status = Open3.capture3('ruby', missing_helper, report, output, chdir: dir)
+
+      refute(status.success?)
+      assert_includes(stderr, 'No such file or directory')
+      refute(File.exist?(output))
+    end
+  end
+
+  def test_evaluator_argument_order_is_preserved
+    assert_match(
+      %r{ruby "\$\(repo_path scripts/supply-chain/evaluate-vulnerabilities\.rb\)" "\$WORK_DIR/\$\{prefix\}-vulnerabilities\.json" "\$WORK_DIR/\$\{prefix\}-policy-result\.json"},
+      runtime
     )
   end
 
