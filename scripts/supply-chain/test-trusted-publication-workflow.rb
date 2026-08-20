@@ -90,6 +90,7 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_includes(runtime, 'classify_authoritative_manifest_state')
     assert_includes(runtime, 'registry_manifest_get')
     assert_includes(runtime, 'registry_bearer_token')
+    assert_includes(runtime, 'classify_registry_token_response')
     assert_includes(runtime, 'classify_registry_manifest_response')
     assert_includes(runtime, 'emit_precheck_telemetry')
     assert_includes(runtime, 'pre_promotion_recheck_state')
@@ -105,11 +106,27 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_AUTH_FAILURE')
     assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_MALFORMED')
     assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_ABSENT')
+    assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_UNOBSERVABLE')
+    assert_includes(runtime, 'repository:$AUTHORITATIVE_REGISTRY_PATH:pull')
     assert_includes(publication_contract, 'MANIFEST_UNKNOWN')
     assert_includes(publication_contract, 'NAME_UNKNOWN')
     assert_includes(runtime, 'authoritative pre-build check failed closed')
     assert_includes(runtime, 'authoritative pre-promotion recheck failed closed')
     refute_match(/printf .*Authorization|printf .*Bearer|cat "\$token_body"|cat "\$manifest_body"/, runtime)
+  end
+
+  def test_authenticated_source_check_is_after_local_policy_and_before_candidate_push
+    local_policy_index = runtime.index('[ "$LOCAL_POLICY_DECISION" = "PASS" ] || fail "local vulnerability policy did not pass"')
+    authenticated_check_index = runtime.index('classify_authoritative_manifest_state "authenticated" "authenticated-source-check"')
+    candidate_push_index = runtime.index('docker push "$candidate_ref"')
+
+    refute_nil(local_policy_index)
+    refute_nil(authenticated_check_index)
+    refute_nil(candidate_push_index)
+    assert_operator(local_policy_index, :<, authenticated_check_index)
+    assert_operator(authenticated_check_index, :<, candidate_push_index)
+    assert_includes(runtime, 'authenticated authoritative source tag exists before candidate publication')
+    assert_includes(runtime, 'authenticated authoritative source check failed closed')
   end
 
   def test_authoritative_recheck_is_before_mutation

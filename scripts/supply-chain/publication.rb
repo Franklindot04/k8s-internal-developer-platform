@@ -32,6 +32,7 @@ module SupplyChainPublication
   PUBLIC_AUTHORITATIVE_MALFORMED = 'PUBLIC_AUTHORITATIVE_MALFORMED'
   PUBLIC_AUTHORITATIVE_UNKNOWN = 'PUBLIC_AUTHORITATIVE_UNKNOWN'
   PUBLIC_AUTHORITATIVE_INVALID_DIGEST = 'PUBLIC_AUTHORITATIVE_INVALID_DIGEST'
+  PUBLIC_AUTHORITATIVE_UNOBSERVABLE = 'PUBLIC_AUTHORITATIVE_UNOBSERVABLE'
   PRE_PROMOTION_ABSENT = 'PRE_PROMOTION_ABSENT'
   PRE_PROMOTION_EXISTS_SAME_DIGEST = 'PRE_PROMOTION_EXISTS_SAME_DIGEST'
   PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST = 'PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST'
@@ -151,6 +152,37 @@ module SupplyChainPublication
     return PUBLIC_AUTHORITATIVE_MALFORMED if status == '404' && code == :malformed
 
     PUBLIC_AUTHORITATIVE_UNKNOWN
+  end
+
+  def classify_registry_token_response(http_status:, body:, mode:)
+    status = http_status.to_s
+    error_code = registry_error_code(body)
+
+    if status == '200'
+      parsed = begin
+        JSON.parse(body.to_s)
+      rescue JSON::ParserError
+        return { 'classification' => PUBLIC_AUTHORITATIVE_MALFORMED, 'registry_error_code' => 'malformed' }
+      end
+      token = parsed['token'] || parsed['access_token']
+      return { 'classification' => PUBLIC_AUTHORITATIVE_EXISTS, 'registry_error_code' => 'none' } if token.is_a?(String) && !token.empty?
+
+      return { 'classification' => PUBLIC_AUTHORITATIVE_AUTH_FAILURE, 'registry_error_code' => 'none' }
+    end
+
+    classification =
+      if status == '403' && error_code == 'DENIED' && mode == 'anonymous'
+        PUBLIC_AUTHORITATIVE_UNOBSERVABLE
+      elsif error_code == :malformed
+        PUBLIC_AUTHORITATIVE_MALFORMED
+      else
+        registry_manifest_classification_for_status(status, error_code)
+      end
+
+    {
+      'classification' => classification,
+      'registry_error_code' => error_code == :malformed ? 'malformed' : (error_code || 'none')
+    }
   end
 
   def classify_registry_manifest_response(http_status:, headers:, body:)
