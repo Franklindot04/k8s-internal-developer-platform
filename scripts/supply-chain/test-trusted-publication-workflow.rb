@@ -2,7 +2,10 @@
 # frozen_string_literal: true
 
 require 'minitest/autorun'
+require 'open3'
 require 'yaml'
+
+require_relative 'publication'
 
 class TrustedPublicationWorkflowTest < Minitest::Test
   WORKFLOW = '.github/workflows/trusted-image-publication.yml'
@@ -25,6 +28,10 @@ class TrustedPublicationWorkflowTest < Minitest::Test
 
   def publication_contract
     @publication_contract ||= File.read('scripts/supply-chain/publication.rb')
+  end
+
+  def run_bash(script)
+    Open3.capture3('bash', '-c', script)
   end
 
   def package_metadata_valid?(object, expected_visibility)
@@ -102,6 +109,8 @@ class TrustedPublicationWorkflowTest < Minitest::Test
 
   def test_registry_manifest_precheck_fails_closed_with_safe_telemetry
     assert_includes(runtime, 'precheck_stage=%s http_status=%s registry_error_code=%s classification=%s')
+    assert_includes(runtime, 'next_stage=local-quarantine')
+    assert_includes(runtime, 'AUTHORITATIVE_STATE_CLASSIFICATION')
     assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_NETWORK_FAILURE')
     assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_AUTH_FAILURE')
     assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_MALFORMED')
@@ -112,7 +121,121 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_includes(publication_contract, 'NAME_UNKNOWN')
     assert_includes(runtime, 'authoritative pre-build check failed closed')
     assert_includes(runtime, 'authoritative pre-promotion recheck failed closed')
+    refute_includes(runtime, 'return 5')
     refute_match(/printf .*Authorization|printf .*Bearer|cat "\$token_body"|cat "\$manifest_body"/, runtime)
+  end
+
+  def test_live_unobservable_token_regression_routes_nonfatally
+    result = SupplyChainPublication.classify_registry_token_response(
+      http_status: '403',
+      body: JSON.generate('errors' => [{ 'code' => 'DENIED' }]),
+      mode: 'anonymous'
+    )
+
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_UNOBSERVABLE, result.fetch('classification'))
+    assert_equal('DENIED', result.fetch('registry_error_code'))
+    assert_includes(runtime, 'AUTHORITATIVE_STATE_CLASSIFICATION="$REGISTRY_TOKEN_CLASSIFICATION"')
+    assert_includes(runtime, 'PUBLIC_AUTHORITATIVE_UNOBSERVABLE)')
+    assert_includes(runtime, 'next_stage=local-quarantine')
+  end
+
+  def test_recognized_public_states_are_nonfatal_under_errexit
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      route_state() {
+        AUTHORITATIVE_STATE_CLASSIFICATION="$1"
+        return 0
+      }
+      candidate_precheck() {
+        local precheck_status=0
+        set +e
+        route_state "$1"
+        precheck_status="$?"
+        set -e
+        [ "$precheck_status" -eq 0 ] || return 1
+        case "$AUTHORITATIVE_STATE_CLASSIFICATION" in
+          PUBLIC_AUTHORITATIVE_EXISTS) printf 'next_stage=existing-publication\n' ;;
+          PUBLIC_AUTHORITATIVE_ABSENT|PUBLIC_AUTHORITATIVE_UNOBSERVABLE) printf 'next_stage=local-quarantine\n' ;;
+          *) return 1 ;;
+        esac
+      }
+      candidate_precheck PUBLIC_AUTHORITATIVE_EXISTS
+      candidate_precheck PUBLIC_AUTHORITATIVE_ABSENT
+      candidate_precheck PUBLIC_AUTHORITATIVE_UNOBSERVABLE
+    BASH
+
+    stdout, stderr, status = run_bash(script)
+
+    assert(status.success?, stderr)
+    assert_equal(
+      "next_stage=existing-publication\nnext_stage=local-quarantine\nnext_stage=local-quarantine\n",
+      stdout
+    )
+  end
+
+  def test_failure_states_remain_fatal_under_errexit
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      fail_state() {
+        AUTHORITATIVE_STATE_CLASSIFICATION="PUBLIC_AUTHORITATIVE_DENIED"
+        return 1
+      }
+      candidate_precheck() {
+        local precheck_status=0
+        set +e
+        fail_state
+        precheck_status="$?"
+        set -e
+        [ "$precheck_status" -eq 0 ] || return 1
+        printf 'unexpected-success\n'
+      }
+      candidate_precheck
+    BASH
+
+    stdout, _stderr, status = run_bash(script)
+
+    refute(status.success?)
+    assert_equal('', stdout)
+  end
+
+  def test_public_unobservable_ordering_remains_quarantine_then_policy_then_authenticated_check_then_push
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      classify_public_state() {
+        AUTHORITATIVE_STATE_CLASSIFICATION="PUBLIC_AUTHORITATIVE_UNOBSERVABLE"
+        return 0
+      }
+      run_candidate() {
+        printf 'LOCAL_BUILD\n'
+        printf 'LOCAL_POLICY_PASS\n'
+        printf 'AUTHENTICATED_SOURCE_CHECK\n'
+        printf 'CANDIDATE_PUSH\n'
+      }
+      candidate_precheck() {
+        local precheck_status=0
+        set +e
+        classify_public_state
+        precheck_status="$?"
+        set -e
+        [ "$precheck_status" -eq 0 ] || return 1
+        case "$AUTHORITATIVE_STATE_CLASSIFICATION" in
+          PUBLIC_AUTHORITATIVE_UNOBSERVABLE)
+            printf 'PUBLIC_UNOBSERVABLE\n'
+            run_candidate
+            ;;
+          *) return 1 ;;
+        esac
+      }
+      candidate_precheck
+    BASH
+
+    stdout, stderr, status = run_bash(script)
+
+    assert(status.success?, stderr)
+    assert_equal(
+      "PUBLIC_UNOBSERVABLE\nLOCAL_BUILD\nLOCAL_POLICY_PASS\nAUTHENTICATED_SOURCE_CHECK\nCANDIDATE_PUSH\n",
+      stdout
+    )
   end
 
   def test_authenticated_source_check_is_after_local_policy_and_before_candidate_push
