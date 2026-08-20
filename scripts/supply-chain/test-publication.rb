@@ -62,36 +62,6 @@ class PublicationContractTest < Minitest::Test
     assert_match(pattern, error.message) if pattern
   end
 
-  def package_response(overrides = {})
-    {
-      'name' => SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME,
-      'package_type' => 'container',
-      'repository' => {
-        'full_name' => SupplyChainPublication::SOURCE_REPOSITORY
-      }
-    }.merge(overrides)
-  end
-
-  def version_with_tags(tags)
-    {
-      'id' => 123,
-      'metadata' => {
-        'container' => {
-          'tags' => tags
-        }
-      }
-    }
-  end
-
-  def namespace_page(names)
-    names.map do |name|
-      {
-        'name' => name,
-        'package_type' => 'container'
-      }
-    end
-  end
-
   def test_successful_publication_fixture_validates_and_generates_handoff
     Dir.mktmpdir do |dir|
       path = File.join(dir, SupplyChainPublication::PUBLICATION_MANIFEST)
@@ -375,229 +345,143 @@ class PublicationContractTest < Minitest::Test
     end
   end
 
-  def test_authoritative_package_absence_is_definitive
-    state = SupplyChainPublication.classify_authoritative_package_response('404', '{"message":"Not Found"}')
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_ABSENT, state)
-  end
-
-  def test_authoritative_package_metadata_must_match_exact_package
-    state = SupplyChainPublication.classify_authoritative_package_response(
-      '200',
-      JSON.generate(package_response('name' => 'k8s-internal-developer-platform/supply-chain-fixture-old'))
+  def test_public_manifest_200_with_valid_digest_exists
+    result = SupplyChainPublication.classify_registry_manifest_response(
+      http_status: '200',
+      headers: "Docker-Content-Digest: #{DIGEST_A}\nContent-Type: application/vnd.oci.image.manifest.v1+json\n",
+      body: '{}'
     )
 
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH, state)
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_EXISTS, result.fetch('classification'))
+    assert_equal(DIGEST_A, result.fetch('digest'))
   end
 
-  def test_authoritative_package_exists_when_metadata_identity_matches
-    state = SupplyChainPublication.classify_authoritative_package_response('200', JSON.generate(package_response))
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_EXISTS, state)
-  end
-
-  def test_authoritative_precheck_fails_closed_for_http_failures
-    {
-      '401' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE,
-      '403' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE,
-      '429' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_RATE_LIMIT,
-      '500' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_SERVER_FAILURE,
-      '503' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_SERVER_FAILURE,
-      '000' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_NETWORK_FAILURE,
-      '418' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE
-    }.each do |status, expected|
-      assert_equal(expected, SupplyChainPublication.classify_authoritative_package_response(status, '{"message":"error"}'))
-    end
-  end
-
-  def test_authoritative_precheck_fails_closed_for_malformed_package_json
-    state = SupplyChainPublication.classify_authoritative_package_response('200', '{')
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE, state)
-  end
-
-  def test_source_repository_token_validation_accepts_exact_repository
-    body = JSON.generate('full_name' => SupplyChainPublication::SOURCE_REPOSITORY)
-
-    state = SupplyChainPublication.classify_source_repository_response('200', body)
-
-    assert_equal(SupplyChainPublication::SOURCE_REPOSITORY_TOKEN_VALID, state)
-  end
-
-  def test_source_repository_token_validation_fails_closed_for_http_failures
-    {
-      '401' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE,
-      '403' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE,
-      '404' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE,
-      '429' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_RATE_LIMIT,
-      '500' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_SERVER_FAILURE,
-      '000' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_NETWORK_FAILURE
-    }.each do |status, expected|
-      assert_equal(expected, SupplyChainPublication.classify_source_repository_response(status, '{"message":"error"}'))
-    end
-  end
-
-  def test_source_repository_token_validation_fails_closed_for_malformed_or_mismatched_identity
-    assert_equal(
-      SupplyChainPublication::AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE,
-      SupplyChainPublication.classify_source_repository_response('200', '{')
-    )
-    assert_equal(
-      SupplyChainPublication::AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH,
-      SupplyChainPublication.classify_source_repository_response('200', JSON.generate('full_name' => 'other/repository'))
-    )
-  end
-
-  def test_exact_package_404_requires_namespace_absence_corroboration
-    exact_state = SupplyChainPublication.classify_authoritative_package_response('404', '{"message":"Not Found"}')
-    namespace_state = SupplyChainPublication.classify_package_namespace_response(
-      '200',
-      JSON.generate(namespace_page(['k8s-internal-developer-platform/other']))
-    )
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_ABSENT, exact_state)
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_ABSENT, namespace_state)
-  end
-
-  def test_exact_package_404_with_namespace_match_fails_closed_as_inconsistent
-    state = SupplyChainPublication.classify_package_namespace_response(
-      '200',
-      JSON.generate(namespace_page([SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME]))
-    )
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_EXISTS, state)
-  end
-
-  def test_namespace_corroboration_fails_closed_for_http_failures
-    {
-      '401' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE,
-      '403' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE,
-      '404' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE,
-      '429' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_RATE_LIMIT,
-      '500' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_SERVER_FAILURE,
-      '000' => SupplyChainPublication::AUTHORITATIVE_PRECHECK_NETWORK_FAILURE
-    }.each do |status, expected|
-      assert_equal(expected, SupplyChainPublication.classify_package_namespace_response(status, '{"message":"error"}'))
-    end
-  end
-
-  def test_namespace_corroboration_fails_closed_for_malformed_response
-    state = SupplyChainPublication.classify_package_namespace_response('200', '{"not":"a list"}')
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE, state)
-  end
-
-  def test_namespace_corroboration_ignores_partial_package_names
-    partial = SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME.delete_suffix('fixture')
-    state = SupplyChainPublication.classify_package_namespace_response('200', JSON.generate(namespace_page([partial])))
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_ABSENT, state)
-  end
-
-  def test_namespace_corroboration_fails_closed_for_duplicate_exact_packages
-    state = SupplyChainPublication.classify_package_namespace_response(
-      '200',
-      JSON.generate(namespace_page([SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME, SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME]))
-    )
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE, state)
-  end
-
-  def test_namespace_corroboration_detects_exact_package_across_pages
-    Dir.mktmpdir do |dir|
-      first_page = File.join(dir, 'packages-1.json')
-      second_page = File.join(dir, 'packages-2.json')
-      File.write(first_page, JSON.generate(namespace_page(['k8s-internal-developer-platform/other'])))
-      File.write(second_page, JSON.generate(namespace_page([SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME])))
-
-      state = SupplyChainPublication.classify_package_namespace_pages(
-        SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME,
-        [first_page, second_page]
+  def test_public_manifest_200_without_valid_digest_fails
+    [
+      '',
+      'sha256:not-hex',
+      DIGEST_A.upcase
+    ].each do |digest|
+      result = SupplyChainPublication.classify_registry_manifest_response(
+        http_status: '200',
+        headers: "Docker-Content-Digest: #{digest}\nContent-Type: application/vnd.oci.image.manifest.v1+json\n",
+        body: '{}'
       )
 
-      assert_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_EXISTS, state)
+      assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_INVALID_DIGEST, result.fetch('classification'))
     end
   end
 
-  def test_namespace_corroboration_fails_closed_for_duplicate_exact_packages_across_pages
-    Dir.mktmpdir do |dir|
-      first_page = File.join(dir, 'packages-1.json')
-      second_page = File.join(dir, 'packages-2.json')
-      File.write(first_page, JSON.generate(namespace_page([SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME])))
-      File.write(second_page, JSON.generate(namespace_page([SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME])))
+  def test_public_manifest_200_with_unsupported_media_type_fails
+    result = SupplyChainPublication.classify_registry_manifest_response(
+      http_status: '200',
+      headers: "Docker-Content-Digest: #{DIGEST_A}\nContent-Type: text/html\n",
+      body: '{}'
+    )
 
-      state = SupplyChainPublication.classify_package_namespace_pages(
-        SupplyChainPublication::AUTHORITATIVE_PACKAGE_NAME,
-        [first_page, second_page]
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_MALFORMED, result.fetch('classification'))
+  end
+
+  def test_public_manifest_404_known_registry_absence_is_first_publication
+    %w[MANIFEST_UNKNOWN NAME_UNKNOWN].each do |code|
+      result = SupplyChainPublication.classify_registry_manifest_response(
+        http_status: '404',
+        headers: "Content-Type: application/json\n",
+        body: JSON.generate('errors' => [{ 'code' => code }])
       )
 
-      assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE, state)
+      assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_ABSENT, result.fetch('classification'))
+      assert_equal(code, result.fetch('registry_error_code'))
     end
   end
 
-  def test_source_tag_lookup_requires_exact_tag_match
-    tag = SupplyChainPublication.authoritative_tag(SOURCE)
-    partial = tag.delete_suffix(SOURCE[-4, 4])
-    versions = JSON.generate([version_with_tags([partial])])
+  def test_public_manifest_404_unknown_or_html_fails_closed
+    unknown = SupplyChainPublication.classify_registry_manifest_response(
+      http_status: '404',
+      headers: "Content-Type: application/json\n",
+      body: JSON.generate('errors' => [{ 'code' => 'BLOB_UNKNOWN' }])
+    )
+    html = SupplyChainPublication.classify_registry_manifest_response(
+      http_status: '404',
+      headers: "Content-Type: text/html\n",
+      body: '<html>missing</html>'
+    )
 
-    state = SupplyChainPublication.classify_authoritative_versions_response('200', versions, source_tag: tag)
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_SOURCE_TAG_ABSENT, state)
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_UNKNOWN, unknown.fetch('classification'))
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_MALFORMED, html.fetch('classification'))
   end
 
-  def test_source_tag_lookup_detects_single_exact_tag
-    tag = SupplyChainPublication.authoritative_tag(SOURCE)
-    versions = JSON.generate([version_with_tags(['other', tag])])
-
-    state = SupplyChainPublication.classify_authoritative_versions_response('200', versions, source_tag: tag)
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_SOURCE_TAG_EXISTS, state)
-  end
-
-  def test_source_tag_lookup_fails_closed_on_multiple_exact_tags
-    tag = SupplyChainPublication.authoritative_tag(SOURCE)
-    versions = JSON.generate([version_with_tags([tag]), version_with_tags([tag])])
-
-    state = SupplyChainPublication.classify_authoritative_versions_response('200', versions, source_tag: tag)
-
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE, state)
-  end
-
-  def test_source_tag_lookup_fails_closed_on_multiple_exact_tags_across_pages
-    tag = SupplyChainPublication.authoritative_tag(SOURCE)
-    Dir.mktmpdir do |dir|
-      first_page = File.join(dir, 'page-1.json')
-      second_page = File.join(dir, 'page-2.json')
-      File.write(first_page, JSON.generate([version_with_tags([tag])]))
-      File.write(second_page, JSON.generate([version_with_tags([tag])]))
-
-      state = SupplyChainPublication.classify_authoritative_source_tag_pages(tag, [first_page, second_page])
-
-      assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE, state)
+  def test_public_manifest_http_failures_fail_closed
+    {
+      '401' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_AUTH_FAILURE,
+      '403' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_DENIED,
+      '429' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_RATE_LIMITED,
+      '500' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_SERVER_FAILURE,
+      '503' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_SERVER_FAILURE,
+      '000' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_NETWORK_FAILURE,
+      '418' => SupplyChainPublication::PUBLIC_AUTHORITATIVE_UNKNOWN
+    }.each do |status, expected|
+      result = SupplyChainPublication.classify_registry_manifest_response(
+        http_status: status,
+        headers: "Content-Type: application/json\n",
+        body: JSON.generate('errors' => [{ 'code' => 'UNEXPECTED' }])
+      )
+      assert_equal(expected, result.fetch('classification'))
     end
   end
 
-  def test_source_tag_lookup_fails_closed_for_http_and_malformed_responses
-    tag = SupplyChainPublication.authoritative_tag(SOURCE)
+  def test_public_manifest_malformed_registry_json_fails_closed
+    result = SupplyChainPublication.classify_registry_manifest_response(
+      http_status: '404',
+      headers: "Content-Type: application/json\n",
+      body: '{'
+    )
 
-    assert_equal(
-      SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE,
-      SupplyChainPublication.classify_authoritative_versions_response('403', '{"message":"forbidden"}', source_tag: tag)
-    )
-    assert_equal(
-      SupplyChainPublication::AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE,
-      SupplyChainPublication.classify_authoritative_versions_response('200', '{"not":"a list"}', source_tag: tag)
-    )
+    assert_equal(SupplyChainPublication::PUBLIC_AUTHORITATIVE_MALFORMED, result.fetch('classification'))
   end
 
-  def test_live_failure_regression_does_not_treat_auth_failure_as_absence
-    fixture = JSON.parse(File.read('tests/fixtures/trusted-publication-precheck/run-32419923450-authoritative-precheck.json'))
-    state = SupplyChainPublication.classify_authoritative_package_response(
-      fixture.fetch('http_status'),
-      JSON.generate(fixture.fetch('body'))
+  def test_pre_promotion_absent_is_eligible
+    state = SupplyChainPublication.pre_promotion_recheck_state(
+      classification: SupplyChainPublication::PUBLIC_AUTHORITATIVE_ABSENT,
+      existing_digest: '',
+      candidate_digest: DIGEST_A
     )
 
-    assert_equal(SupplyChainPublication::AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE, state)
-    refute_equal(SupplyChainPublication::AUTHORITATIVE_PACKAGE_ABSENT, state)
+    assert_equal(SupplyChainPublication::PRE_PROMOTION_ABSENT, state)
+  end
+
+  def test_pre_promotion_same_digest_is_idempotent
+    state = SupplyChainPublication.pre_promotion_recheck_state(
+      classification: SupplyChainPublication::PUBLIC_AUTHORITATIVE_EXISTS,
+      existing_digest: DIGEST_A,
+      candidate_digest: DIGEST_A
+    )
+
+    assert_equal(SupplyChainPublication::PRE_PROMOTION_EXISTS_SAME_DIGEST, state)
+  end
+
+  def test_pre_promotion_different_digest_fails_closed
+    state = SupplyChainPublication.pre_promotion_recheck_state(
+      classification: SupplyChainPublication::PUBLIC_AUTHORITATIVE_EXISTS,
+      existing_digest: DIGEST_B,
+      candidate_digest: DIGEST_A
+    )
+
+    assert_equal(SupplyChainPublication::PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST, state)
+  end
+
+  def test_pre_promotion_failures_remain_failures
+    [
+      SupplyChainPublication::PUBLIC_AUTHORITATIVE_AUTH_FAILURE,
+      SupplyChainPublication::PUBLIC_AUTHORITATIVE_NETWORK_FAILURE,
+      SupplyChainPublication::PUBLIC_AUTHORITATIVE_MALFORMED
+    ].each do |classification|
+      state = SupplyChainPublication.pre_promotion_recheck_state(
+        classification: classification,
+        existing_digest: '',
+        candidate_digest: DIGEST_A
+      )
+      assert_equal(classification, state)
+    end
   end
 end

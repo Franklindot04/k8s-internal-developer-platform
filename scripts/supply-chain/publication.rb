@@ -22,21 +22,19 @@ module SupplyChainPublication
   LOCAL_STATES = %w[LOCAL_VERIFIED LOCAL_BLOCKED EXISTING_PUBLICATION].freeze
   PASS = 'PASS'
   FAIL = 'FAIL'
-  SOURCE_REPOSITORY_TOKEN_VALID = 'SOURCE_REPOSITORY_TOKEN_VALID'
-  AUTHORITATIVE_PACKAGE_EXISTS = 'AUTHORITATIVE_PACKAGE_EXISTS'
-  AUTHORITATIVE_PACKAGE_ABSENT = 'AUTHORITATIVE_PACKAGE_ABSENT'
-  AUTHORITATIVE_SOURCE_TAG_EXISTS = 'AUTHORITATIVE_SOURCE_TAG_EXISTS'
-  AUTHORITATIVE_SOURCE_TAG_ABSENT = 'AUTHORITATIVE_SOURCE_TAG_ABSENT'
-  AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE = 'AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE'
-  AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE = 'AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE'
-  AUTHORITATIVE_PRECHECK_RATE_LIMIT = 'AUTHORITATIVE_PRECHECK_RATE_LIMIT'
-  AUTHORITATIVE_PRECHECK_SERVER_FAILURE = 'AUTHORITATIVE_PRECHECK_SERVER_FAILURE'
-  AUTHORITATIVE_PRECHECK_NETWORK_FAILURE = 'AUTHORITATIVE_PRECHECK_NETWORK_FAILURE'
-  AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE = 'AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE'
-  AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE = 'AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE'
-  AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE = 'AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE'
-  AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH = 'AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH'
-  AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH = 'AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH'
+  PUBLIC_AUTHORITATIVE_EXISTS = 'PUBLIC_AUTHORITATIVE_EXISTS'
+  PUBLIC_AUTHORITATIVE_ABSENT = 'PUBLIC_AUTHORITATIVE_ABSENT'
+  PUBLIC_AUTHORITATIVE_AUTH_FAILURE = 'PUBLIC_AUTHORITATIVE_AUTH_FAILURE'
+  PUBLIC_AUTHORITATIVE_DENIED = 'PUBLIC_AUTHORITATIVE_DENIED'
+  PUBLIC_AUTHORITATIVE_RATE_LIMITED = 'PUBLIC_AUTHORITATIVE_RATE_LIMITED'
+  PUBLIC_AUTHORITATIVE_SERVER_FAILURE = 'PUBLIC_AUTHORITATIVE_SERVER_FAILURE'
+  PUBLIC_AUTHORITATIVE_NETWORK_FAILURE = 'PUBLIC_AUTHORITATIVE_NETWORK_FAILURE'
+  PUBLIC_AUTHORITATIVE_MALFORMED = 'PUBLIC_AUTHORITATIVE_MALFORMED'
+  PUBLIC_AUTHORITATIVE_UNKNOWN = 'PUBLIC_AUTHORITATIVE_UNKNOWN'
+  PUBLIC_AUTHORITATIVE_INVALID_DIGEST = 'PUBLIC_AUTHORITATIVE_INVALID_DIGEST'
+  PRE_PROMOTION_ABSENT = 'PRE_PROMOTION_ABSENT'
+  PRE_PROMOTION_EXISTS_SAME_DIGEST = 'PRE_PROMOTION_EXISTS_SAME_DIGEST'
+  PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST = 'PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST'
 
   class ContractError < StandardError; end
 
@@ -122,137 +120,84 @@ module SupplyChainPublication
     "sha-#{validate_source_revision!(source_revision)}"
   end
 
-  def classify_github_packages_http_status(http_status)
-    status = http_status.to_s
+  def parse_http_headers(header_text)
+    headers = {}
+    header_text.to_s.each_line do |line|
+      key, value = line.split(':', 2)
+      next if value.nil?
 
-    return AUTHORITATIVE_PRECHECK_NETWORK_FAILURE if status == '000'
-    return AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE if status == '401'
-    return AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE if status == '403'
-    return AUTHORITATIVE_PRECHECK_RATE_LIMIT if status == '429'
-    return AUTHORITATIVE_PRECHECK_SERVER_FAILURE if status.match?(/\A5[0-9][0-9]\z/)
-
-    AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE
+      headers[key.downcase] = value.strip
+    end
+    headers
   end
 
-  def parse_github_packages_json(body)
-    JSON.parse(body)
+  def registry_error_code(body)
+    parsed = JSON.parse(body.to_s)
+    errors = parsed['errors']
+    return nil unless errors.is_a?(Array) && errors.length == 1 && errors.first.is_a?(Hash)
+
+    errors.first['code']
   rescue JSON::ParserError
-    AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    :malformed
   end
 
-  def classify_authoritative_package_response(http_status, body, expected_name: AUTHORITATIVE_PACKAGE_NAME)
+  def registry_manifest_classification_for_status(status, code)
+    return PUBLIC_AUTHORITATIVE_NETWORK_FAILURE if status == '000'
+    return PUBLIC_AUTHORITATIVE_AUTH_FAILURE if status == '401'
+    return PUBLIC_AUTHORITATIVE_DENIED if status == '403'
+    return PUBLIC_AUTHORITATIVE_RATE_LIMITED if status == '429'
+    return PUBLIC_AUTHORITATIVE_SERVER_FAILURE if status.match?(/\A5[0-9][0-9]\z/)
+    return PUBLIC_AUTHORITATIVE_ABSENT if status == '404' && %w[NAME_UNKNOWN MANIFEST_UNKNOWN].include?(code)
+    return PUBLIC_AUTHORITATIVE_MALFORMED if status == '404' && code == :malformed
+
+    PUBLIC_AUTHORITATIVE_UNKNOWN
+  end
+
+  def classify_registry_manifest_response(http_status:, headers:, body:)
     status = http_status.to_s
+    parsed_headers = headers.is_a?(Hash) ? headers.transform_keys { |key| key.to_s.downcase } : parse_http_headers(headers)
+    error_code = registry_error_code(body)
 
-    return AUTHORITATIVE_PACKAGE_ABSENT if status == '404'
-    return classify_github_packages_http_status(status) unless status == '200'
+    if status == '200'
+      digest = parsed_headers['docker-content-digest'].to_s
+      return { 'classification' => PUBLIC_AUTHORITATIVE_INVALID_DIGEST, 'registry_error_code' => 'none' } unless digest.match?(/\Asha256:[a-f0-9]{64}\z/)
 
-    parsed = parse_github_packages_json(body)
-    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Hash)
+      media_type = parsed_headers['content-type'].to_s.split(';').first
+      supported_media_types = [
+        'application/vnd.oci.image.manifest.v1+json',
+        'application/vnd.oci.image.index.v1+json',
+        'application/vnd.docker.distribution.manifest.v2+json',
+        'application/vnd.docker.distribution.manifest.list.v2+json'
+      ]
+      unless supported_media_types.include?(media_type)
+        return { 'classification' => PUBLIC_AUTHORITATIVE_MALFORMED, 'registry_error_code' => 'none', 'digest' => digest }
+      end
 
-    return AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH unless parsed['name'] == expected_name
-    return AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH if parsed.key?('package_type') && parsed['package_type'] != 'container'
-    if parsed.key?('repository') && parsed.dig('repository', 'full_name') != SOURCE_REPOSITORY
-      return AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH
+      return {
+        'classification' => PUBLIC_AUTHORITATIVE_EXISTS,
+        'registry_error_code' => 'none',
+        'digest' => digest,
+        'media_type' => media_type
+      }
     end
 
-    AUTHORITATIVE_PACKAGE_EXISTS
+    {
+      'classification' => registry_manifest_classification_for_status(status, error_code),
+      'registry_error_code' => error_code == :malformed ? 'malformed' : (error_code || 'none')
+    }
   end
 
-  def classify_source_repository_response(http_status, body)
-    status = http_status.to_s
-
-    return classify_github_packages_http_status(status) unless status == '200'
-
-    parsed = parse_github_packages_json(body)
-    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Hash)
-
-    return AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH unless parsed['full_name'] == SOURCE_REPOSITORY
-
-    SOURCE_REPOSITORY_TOKEN_VALID
-  end
-
-  def package_namespace_matches_from_body(body, expected_name)
-    parsed = parse_github_packages_json(body)
-    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Array)
-
-    parsed.select do |package|
-      package.is_a?(Hash) && package['name'] == expected_name
+  def pre_promotion_recheck_state(classification:, existing_digest:, candidate_digest:)
+    candidate = validate_digest!(candidate_digest)
+    case classification
+    when PUBLIC_AUTHORITATIVE_ABSENT
+      PRE_PROMOTION_ABSENT
+    when PUBLIC_AUTHORITATIVE_EXISTS
+      existing = validate_digest!(existing_digest)
+      existing == candidate ? PRE_PROMOTION_EXISTS_SAME_DIGEST : PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST
+    else
+      classification
     end
-  end
-
-  def classify_package_namespace_response(http_status, body, expected_name: AUTHORITATIVE_PACKAGE_NAME)
-    status = http_status.to_s
-
-    return classify_github_packages_http_status(status) unless status == '200'
-
-    matches = package_namespace_matches_from_body(body, expected_name)
-    return matches if matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-    return AUTHORITATIVE_PACKAGE_ABSENT if matches.empty?
-    return AUTHORITATIVE_PACKAGE_EXISTS if matches.length == 1
-
-    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
-  end
-
-  def classify_package_namespace_pages(expected_name, page_paths)
-    matches = []
-
-    page_paths.each do |path|
-      page_matches = package_namespace_matches_from_body(File.read(path), expected_name)
-      return page_matches if page_matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-
-      matches.concat(page_matches)
-    end
-
-    return AUTHORITATIVE_PACKAGE_ABSENT if matches.empty?
-    return AUTHORITATIVE_PACKAGE_EXISTS if matches.length == 1
-
-    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
-  end
-
-  def source_tag_matches_from_versions_body(body, source_tag)
-    parsed = parse_github_packages_json(body)
-    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Array)
-
-    parsed.select do |version|
-      next false unless version.is_a?(Hash)
-
-      tags = version.dig('metadata', 'container', 'tags')
-      tags.is_a?(Array) && tags.any? { |tag| tag == source_tag }
-    end
-  end
-
-  def classify_authoritative_versions_response(http_status, body, source_tag:)
-    status = http_status.to_s
-
-    return classify_github_packages_http_status(status) unless status == '200'
-
-    matches = source_tag_matches_from_versions_body(body, source_tag)
-    return matches if matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-    return AUTHORITATIVE_SOURCE_TAG_ABSENT if matches.empty?
-    return AUTHORITATIVE_SOURCE_TAG_EXISTS if matches.length == 1
-
-    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
-  end
-
-  def classify_authoritative_source_tag_pages(source_tag, page_paths)
-    validate_source_revision!(source_tag.delete_prefix('sha-')) if source_tag.start_with?('sha-')
-    matches = []
-
-    page_paths.each do |path|
-      page_matches = source_tag_matches_from_versions_body(File.read(path), source_tag)
-      return page_matches if page_matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
-
-      matches.concat(page_matches)
-    end
-
-    return AUTHORITATIVE_SOURCE_TAG_ABSENT if matches.empty?
-    return AUTHORITATIVE_SOURCE_TAG_EXISTS if matches.length == 1
-
-    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
   end
 
   def candidate_tag(source_revision, workflow_run_id, workflow_run_attempt)
