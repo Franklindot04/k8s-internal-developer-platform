@@ -22,6 +22,7 @@ module SupplyChainPublication
   LOCAL_STATES = %w[LOCAL_VERIFIED LOCAL_BLOCKED EXISTING_PUBLICATION].freeze
   PASS = 'PASS'
   FAIL = 'FAIL'
+  SOURCE_REPOSITORY_TOKEN_VALID = 'SOURCE_REPOSITORY_TOKEN_VALID'
   AUTHORITATIVE_PACKAGE_EXISTS = 'AUTHORITATIVE_PACKAGE_EXISTS'
   AUTHORITATIVE_PACKAGE_ABSENT = 'AUTHORITATIVE_PACKAGE_ABSENT'
   AUTHORITATIVE_SOURCE_TAG_EXISTS = 'AUTHORITATIVE_SOURCE_TAG_EXISTS'
@@ -35,6 +36,7 @@ module SupplyChainPublication
   AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE = 'AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE'
   AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE = 'AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE'
   AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH = 'AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH'
+  AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH = 'AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH'
 
   class ContractError < StandardError; end
 
@@ -155,6 +157,59 @@ module SupplyChainPublication
     end
 
     AUTHORITATIVE_PACKAGE_EXISTS
+  end
+
+  def classify_source_repository_response(http_status, body)
+    status = http_status.to_s
+
+    return classify_github_packages_http_status(status) unless status == '200'
+
+    parsed = parse_github_packages_json(body)
+    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Hash)
+
+    return AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH unless parsed['full_name'] == SOURCE_REPOSITORY
+
+    SOURCE_REPOSITORY_TOKEN_VALID
+  end
+
+  def package_namespace_matches_from_body(body, expected_name)
+    parsed = parse_github_packages_json(body)
+    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Array)
+
+    parsed.select do |package|
+      package.is_a?(Hash) && package['name'] == expected_name
+    end
+  end
+
+  def classify_package_namespace_response(http_status, body, expected_name: AUTHORITATIVE_PACKAGE_NAME)
+    status = http_status.to_s
+
+    return classify_github_packages_http_status(status) unless status == '200'
+
+    matches = package_namespace_matches_from_body(body, expected_name)
+    return matches if matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PACKAGE_ABSENT if matches.empty?
+    return AUTHORITATIVE_PACKAGE_EXISTS if matches.length == 1
+
+    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
+  end
+
+  def classify_package_namespace_pages(expected_name, page_paths)
+    matches = []
+
+    page_paths.each do |path|
+      page_matches = package_namespace_matches_from_body(File.read(path), expected_name)
+      return page_matches if page_matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+
+      matches.concat(page_matches)
+    end
+
+    return AUTHORITATIVE_PACKAGE_ABSENT if matches.empty?
+    return AUTHORITATIVE_PACKAGE_EXISTS if matches.length == 1
+
+    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
   end
 
   def source_tag_matches_from_versions_body(body, source_tag)
