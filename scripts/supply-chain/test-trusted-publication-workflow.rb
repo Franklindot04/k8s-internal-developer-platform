@@ -83,6 +83,12 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_includes(runtime, 'docker buildx imagetools create')
     assert_includes(runtime, 'verify_package_metadata "$CANDIDATE_PACKAGE_NAME" "public" "candidate"')
     assert_includes(runtime, 'verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "public" "authoritative"')
+    assert_includes(runtime, 'classify_authoritative_publication_state')
+    assert_includes(runtime, 'validate_source_repository_token')
+    assert_includes(runtime, 'corroborate_authoritative_package_absence')
+    assert_includes(runtime, 'classify_authoritative_package_response')
+    assert_includes(runtime, 'classify_package_namespace_response')
+    assert_includes(runtime, 'classify_authoritative_versions_response')
     assert_includes(runtime, 'LOCAL_POLICY_DECISION')
     assert_includes(runtime, 'docker push "$candidate_ref"')
   end

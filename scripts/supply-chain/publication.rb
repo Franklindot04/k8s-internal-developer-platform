@@ -9,6 +9,7 @@ module SupplyChainPublication
   REGISTRY_HOST = 'ghcr.io'
   CANDIDATE_REPOSITORY = 'ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture-candidates'
   AUTHORITATIVE_REPOSITORY = 'ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture'
+  AUTHORITATIVE_PACKAGE_NAME = 'k8s-internal-developer-platform/supply-chain-fixture'
   SOURCE_REPOSITORY = 'Franklindot04/k8s-internal-developer-platform'
   SOURCE_URL = 'https://github.com/Franklindot04/k8s-internal-developer-platform'
   TARGET_PLATFORM = 'linux/amd64'
@@ -21,6 +22,21 @@ module SupplyChainPublication
   LOCAL_STATES = %w[LOCAL_VERIFIED LOCAL_BLOCKED EXISTING_PUBLICATION].freeze
   PASS = 'PASS'
   FAIL = 'FAIL'
+  SOURCE_REPOSITORY_TOKEN_VALID = 'SOURCE_REPOSITORY_TOKEN_VALID'
+  AUTHORITATIVE_PACKAGE_EXISTS = 'AUTHORITATIVE_PACKAGE_EXISTS'
+  AUTHORITATIVE_PACKAGE_ABSENT = 'AUTHORITATIVE_PACKAGE_ABSENT'
+  AUTHORITATIVE_SOURCE_TAG_EXISTS = 'AUTHORITATIVE_SOURCE_TAG_EXISTS'
+  AUTHORITATIVE_SOURCE_TAG_ABSENT = 'AUTHORITATIVE_SOURCE_TAG_ABSENT'
+  AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE = 'AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE'
+  AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE = 'AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE'
+  AUTHORITATIVE_PRECHECK_RATE_LIMIT = 'AUTHORITATIVE_PRECHECK_RATE_LIMIT'
+  AUTHORITATIVE_PRECHECK_SERVER_FAILURE = 'AUTHORITATIVE_PRECHECK_SERVER_FAILURE'
+  AUTHORITATIVE_PRECHECK_NETWORK_FAILURE = 'AUTHORITATIVE_PRECHECK_NETWORK_FAILURE'
+  AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE = 'AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE'
+  AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE = 'AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE'
+  AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE = 'AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE'
+  AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH = 'AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH'
+  AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH = 'AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH'
 
   class ContractError < StandardError; end
 
@@ -104,6 +120,139 @@ module SupplyChainPublication
 
   def authoritative_tag(source_revision)
     "sha-#{validate_source_revision!(source_revision)}"
+  end
+
+  def classify_github_packages_http_status(http_status)
+    status = http_status.to_s
+
+    return AUTHORITATIVE_PRECHECK_NETWORK_FAILURE if status == '000'
+    return AUTHORITATIVE_PRECHECK_AUTHENTICATION_FAILURE if status == '401'
+    return AUTHORITATIVE_PRECHECK_AUTHORIZATION_FAILURE if status == '403'
+    return AUTHORITATIVE_PRECHECK_RATE_LIMIT if status == '429'
+    return AUTHORITATIVE_PRECHECK_SERVER_FAILURE if status.match?(/\A5[0-9][0-9]\z/)
+
+    AUTHORITATIVE_PRECHECK_UNEXPECTED_RESPONSE
+  end
+
+  def parse_github_packages_json(body)
+    JSON.parse(body)
+  rescue JSON::ParserError
+    AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+  end
+
+  def classify_authoritative_package_response(http_status, body, expected_name: AUTHORITATIVE_PACKAGE_NAME)
+    status = http_status.to_s
+
+    return AUTHORITATIVE_PACKAGE_ABSENT if status == '404'
+    return classify_github_packages_http_status(status) unless status == '200'
+
+    parsed = parse_github_packages_json(body)
+    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Hash)
+
+    return AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH unless parsed['name'] == expected_name
+    return AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH if parsed.key?('package_type') && parsed['package_type'] != 'container'
+    if parsed.key?('repository') && parsed.dig('repository', 'full_name') != SOURCE_REPOSITORY
+      return AUTHORITATIVE_PRECHECK_PACKAGE_MISMATCH
+    end
+
+    AUTHORITATIVE_PACKAGE_EXISTS
+  end
+
+  def classify_source_repository_response(http_status, body)
+    status = http_status.to_s
+
+    return classify_github_packages_http_status(status) unless status == '200'
+
+    parsed = parse_github_packages_json(body)
+    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Hash)
+
+    return AUTHORITATIVE_PRECHECK_REPOSITORY_MISMATCH unless parsed['full_name'] == SOURCE_REPOSITORY
+
+    SOURCE_REPOSITORY_TOKEN_VALID
+  end
+
+  def package_namespace_matches_from_body(body, expected_name)
+    parsed = parse_github_packages_json(body)
+    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Array)
+
+    parsed.select do |package|
+      package.is_a?(Hash) && package['name'] == expected_name
+    end
+  end
+
+  def classify_package_namespace_response(http_status, body, expected_name: AUTHORITATIVE_PACKAGE_NAME)
+    status = http_status.to_s
+
+    return classify_github_packages_http_status(status) unless status == '200'
+
+    matches = package_namespace_matches_from_body(body, expected_name)
+    return matches if matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PACKAGE_ABSENT if matches.empty?
+    return AUTHORITATIVE_PACKAGE_EXISTS if matches.length == 1
+
+    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
+  end
+
+  def classify_package_namespace_pages(expected_name, page_paths)
+    matches = []
+
+    page_paths.each do |path|
+      page_matches = package_namespace_matches_from_body(File.read(path), expected_name)
+      return page_matches if page_matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+
+      matches.concat(page_matches)
+    end
+
+    return AUTHORITATIVE_PACKAGE_ABSENT if matches.empty?
+    return AUTHORITATIVE_PACKAGE_EXISTS if matches.length == 1
+
+    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
+  end
+
+  def source_tag_matches_from_versions_body(body, source_tag)
+    parsed = parse_github_packages_json(body)
+    return parsed if parsed == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE unless parsed.is_a?(Array)
+
+    parsed.select do |version|
+      next false unless version.is_a?(Hash)
+
+      tags = version.dig('metadata', 'container', 'tags')
+      tags.is_a?(Array) && tags.any? { |tag| tag == source_tag }
+    end
+  end
+
+  def classify_authoritative_versions_response(http_status, body, source_tag:)
+    status = http_status.to_s
+
+    return classify_github_packages_http_status(status) unless status == '200'
+
+    matches = source_tag_matches_from_versions_body(body, source_tag)
+    return matches if matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+    return AUTHORITATIVE_SOURCE_TAG_ABSENT if matches.empty?
+    return AUTHORITATIVE_SOURCE_TAG_EXISTS if matches.length == 1
+
+    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
+  end
+
+  def classify_authoritative_source_tag_pages(source_tag, page_paths)
+    validate_source_revision!(source_tag.delete_prefix('sha-')) if source_tag.start_with?('sha-')
+    matches = []
+
+    page_paths.each do |path|
+      page_matches = source_tag_matches_from_versions_body(File.read(path), source_tag)
+      return page_matches if page_matches == AUTHORITATIVE_PRECHECK_MALFORMED_RESPONSE
+
+      matches.concat(page_matches)
+    end
+
+    return AUTHORITATIVE_SOURCE_TAG_ABSENT if matches.empty?
+    return AUTHORITATIVE_SOURCE_TAG_EXISTS if matches.length == 1
+
+    AUTHORITATIVE_PRECHECK_AMBIGUOUS_RESPONSE
   end
 
   def candidate_tag(source_revision, workflow_run_id, workflow_run_attempt)

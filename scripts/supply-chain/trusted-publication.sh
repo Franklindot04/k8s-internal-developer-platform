@@ -8,6 +8,8 @@ readonly AUTHORITATIVE_REPOSITORY="ghcr.io/franklindot04/k8s-internal-developer-
 readonly TARGET_PLATFORM="linux/amd64"
 readonly CANDIDATE_PACKAGE_NAME="k8s-internal-developer-platform%2Fsupply-chain-fixture-candidates"
 readonly AUTHORITATIVE_PACKAGE_NAME="k8s-internal-developer-platform%2Fsupply-chain-fixture"
+readonly GITHUB_API_ROOT="https://api.github.com"
+readonly GITHUB_PACKAGES_API_ROOT="https://api.github.com/users/Franklindot04/packages/container"
 readonly MAX_EVIDENCE_BYTES=10485760
 
 ROOT=""
@@ -51,6 +53,22 @@ candidate_tag() {
 
 authoritative_tag() {
   ruby -r ./scripts/supply-chain/publication.rb -e 'puts SupplyChainPublication.authoritative_tag(ARGV.fetch(0))' "$1"
+}
+
+classify_source_repository_response() {
+  ruby -r ./scripts/supply-chain/publication.rb -e 'puts SupplyChainPublication.classify_source_repository_response(ARGV.fetch(0), File.read(ARGV.fetch(1)))' "$1" "$2"
+}
+
+classify_authoritative_package_response() {
+  ruby -r ./scripts/supply-chain/publication.rb -e 'puts SupplyChainPublication.classify_authoritative_package_response(ARGV.fetch(0), File.read(ARGV.fetch(1)))' "$1" "$2"
+}
+
+classify_package_namespace_response() {
+  ruby -r ./scripts/supply-chain/publication.rb -e 'puts SupplyChainPublication.classify_package_namespace_response(ARGV.fetch(0), File.read(ARGV.fetch(1)))' "$1" "$2"
+}
+
+classify_authoritative_versions_response() {
+  ruby -r ./scripts/supply-chain/publication.rb -e 'puts SupplyChainPublication.classify_authoritative_versions_response(ARGV.fetch(0), File.read(ARGV.fetch(1)), source_tag: ARGV.fetch(2))' "$1" "$2" "$3"
 }
 
 write_result() {
@@ -119,6 +137,149 @@ inspect_registry_reference() {
   fi
 
   return 1
+}
+
+github_api_get() {
+  local url="$1"
+  local output="$2"
+  local error_file="$3"
+  local http_status=""
+
+  set +e
+  http_status="$(
+    curl --silent --show-error --location \
+      --output "$output" \
+      --write-out '%{http_code}' \
+      --header 'Accept: application/vnd.github+json' \
+      --header "Authorization: Bearer ${GITHUB_TOKEN:?}" \
+      --header 'X-GitHub-Api-Version: 2026-03-10' \
+      "$url" 2>"$error_file"
+  )"
+  local curl_status="$?"
+  set -e
+
+  if [ "$curl_status" -ne 0 ]; then
+    printf '000\n'
+    return 0
+  fi
+
+  printf '%s\n' "$http_status"
+}
+
+github_packages_api_get() {
+  local path="$1"
+  local output="$2"
+  local error_file="$3"
+
+  github_api_get "${GITHUB_PACKAGES_API_ROOT}${path}" "$output" "$error_file"
+}
+
+validate_source_repository_token() {
+  local repository_body="$WORK_DIR/source-repository-token-check.json"
+  local repository_error="$WORK_DIR/source-repository-token-check.err"
+  local repository_status=""
+  local repository_classification=""
+
+  repository_status="$(github_api_get "${GITHUB_API_ROOT}/repos/$SOURCE_REPOSITORY" "$repository_body" "$repository_error")"
+  repository_classification="$(classify_source_repository_response "$repository_status" "$repository_body")"
+  [ "$repository_classification" = "SOURCE_REPOSITORY_TOKEN_VALID" ]
+}
+
+corroborate_authoritative_package_absence() {
+  local page=1
+  local package_seen="false"
+
+  while :; do
+    local namespace_body="$WORK_DIR/authoritative-package-namespace-page-${page}.json"
+    local namespace_error="$WORK_DIR/authoritative-package-namespace-page-${page}.err"
+    local namespace_status=""
+    local namespace_classification=""
+
+    namespace_status="$(github_api_get "${GITHUB_API_ROOT}/users/Franklindot04/packages?package_type=container&per_page=100&page=$page" "$namespace_body" "$namespace_error")"
+    namespace_classification="$(classify_package_namespace_response "$namespace_status" "$namespace_body")"
+
+    case "$namespace_classification" in
+      AUTHORITATIVE_PACKAGE_EXISTS)
+        if [ "$package_seen" = "true" ]; then
+          return 1
+        fi
+        package_seen="true"
+        ;;
+      AUTHORITATIVE_PACKAGE_ABSENT)
+        if [ "$(jq 'length' "$namespace_body")" -eq 0 ]; then
+          break
+        fi
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+
+    page=$((page + 1))
+  done
+
+  [ "$package_seen" = "false" ]
+}
+
+classify_authoritative_publication_state() {
+  local package_body="$WORK_DIR/authoritative-package-precheck.json"
+  local package_error="$WORK_DIR/authoritative-package-precheck.err"
+  local package_status=""
+  local package_classification=""
+
+  validate_source_repository_token || return 1
+
+  package_status="$(github_packages_api_get "/$AUTHORITATIVE_PACKAGE_NAME" "$package_body" "$package_error")"
+  package_classification="$(classify_authoritative_package_response "$package_status" "$package_body")"
+
+  case "$package_classification" in
+    AUTHORITATIVE_PACKAGE_ABSENT)
+      corroborate_authoritative_package_absence || return 1
+      return 4
+      ;;
+    AUTHORITATIVE_PACKAGE_EXISTS)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  local page=1
+  local tag_seen="false"
+  while :; do
+    local versions_body="$WORK_DIR/authoritative-versions-page-${page}.json"
+    local versions_error="$WORK_DIR/authoritative-versions-page-${page}.err"
+    local versions_status=""
+    local versions_classification=""
+
+    versions_status="$(github_packages_api_get "/$AUTHORITATIVE_PACKAGE_NAME/versions?per_page=100&page=$page" "$versions_body" "$versions_error")"
+    versions_classification="$(classify_authoritative_versions_response "$versions_status" "$versions_body" "$AUTHORITATIVE_TAG")"
+
+    case "$versions_classification" in
+      AUTHORITATIVE_SOURCE_TAG_EXISTS)
+        if [ "$tag_seen" = "true" ]; then
+          return 1
+        fi
+        tag_seen="true"
+        ;;
+      AUTHORITATIVE_SOURCE_TAG_ABSENT)
+        if [ "$(jq 'length' "$versions_body")" -eq 0 ]; then
+          break
+        fi
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+
+    page=$((page + 1))
+  done
+
+  if [ "$tag_seen" = "true" ]; then
+    return 0
+  fi
+
+  return 4
 }
 
 manifest_digest() {
@@ -352,6 +513,8 @@ build_local_candidate() {
 run_existing() {
   PUBLICATION_MODE="existing"
   CANDIDATE_TAG="$(candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT")"
+  docker_login
+  retry 10 inspect_registry_reference "$AUTHORITATIVE_REPOSITORY:$AUTHORITATIVE_TAG" "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/authoritative-precheck.err" || fail "authoritative registry inspection failed"
   AUTHORITATIVE_TAG_DIGEST="$(manifest_digest "$WORK_DIR/authoritative-precheck.json")"
   validate_digest "$AUTHORITATIVE_TAG_DIGEST"
   VERIFIED_SCAN_TARGET_DIGEST="$AUTHORITATIVE_TAG_DIGEST"
@@ -360,7 +523,6 @@ run_existing() {
   cp "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/authoritative-manifest.json"
   cp "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/candidate-manifest.json"
 
-  docker_login
   verify_package_metadata "$AUTHORITATIVE_PACKAGE_NAME" "public" "authoritative"
   pull_and_verify_exact_digest "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST" "$AUTHORITATIVE_TAG_DIGEST"
   anonymous_pull_by_digest "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST"
@@ -505,7 +667,7 @@ candidate_command() {
 
   local precheck_status=0
   set +e
-  inspect_registry_reference "$AUTHORITATIVE_REPOSITORY:$AUTHORITATIVE_TAG" "$WORK_DIR/authoritative-precheck.json" "$WORK_DIR/authoritative-precheck.err"
+  classify_authoritative_publication_state
   precheck_status="$?"
   set -e
 
