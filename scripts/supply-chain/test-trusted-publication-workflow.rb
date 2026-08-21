@@ -286,20 +286,142 @@ class TrustedPublicationWorkflowTest < Minitest::Test
 
   def test_evaluator_argument_order_is_preserved
     assert_match(
-      %r{ruby "\$\(repo_path scripts/supply-chain/evaluate-vulnerabilities\.rb\)" "\$WORK_DIR/\$\{prefix\}-vulnerabilities\.json" "\$WORK_DIR/\$\{prefix\}-policy-result\.json"},
+      %r{ruby "\$\(repo_path scripts/supply-chain/evaluate-vulnerabilities\.rb\)" "\$WORK_DIR/\$\{prefix\}-vulnerabilities\.json" "\$policy_result"},
       runtime
     )
   end
 
+  def policy_result_handoff_script(scenario)
+    <<~BASH
+      set -Eeuo pipefail
+      WORK_DIR="$(mktemp -d)"
+      SCENARIO="#{scenario}"
+
+      policy_result_decision() {
+        ruby -rjson -e '
+          path = ARGV.fetch(0)
+          abort("[error] missing") unless File.file?(path)
+          abort("[error] empty") if File.zero?(path)
+          result = JSON.parse(File.read(path))
+          abort("[error] object") unless result.is_a?(Hash)
+          decision = result.fetch("decision")
+          abort("[error] type") unless decision.is_a?(String)
+          abort("[error] value") unless %w[PASS FAIL].include?(decision)
+          puts decision
+        ' "$1"
+      }
+
+      generate_sbom_and_vulnerability() {
+        local result="$WORK_DIR/local-policy-result.json"
+        rm -f "$result"
+        case "$SCENARIO" in
+          pass) printf '{"decision":"PASS"}\\n' >"$result" ;;
+          fail) printf '{"decision":"FAIL"}\\n' >"$result" ;;
+          missing) : ;;
+          malformed) printf '{not-json\\n' >"$result" ;;
+          unknown) printf '{"decision":"UNKNOWN"}\\n' >"$result" ;;
+          stale)
+            printf '[error] evaluator failed\\n' >&2
+            return 1
+            ;;
+          *) return 2 ;;
+        esac
+      }
+
+      authenticated_source_check() {
+        printf 'AUTHENTICATED_SOURCE_CHECK\\n'
+      }
+
+      candidate_push() {
+        printf 'CANDIDATE_PUSH\\n'
+      }
+
+      run_candidate() {
+        if [ "$SCENARIO" = "stale" ]; then
+          printf '{"decision":"PASS"}\\n' >"$WORK_DIR/local-policy-result.json"
+        fi
+        (cd "$WORK_DIR" && generate_sbom_and_vulnerability)
+        LOCAL_POLICY_DECISION="$(policy_result_decision "$WORK_DIR/local-policy-result.json")"
+        printf 'LOCAL_POLICY_RESULT=%s\\n' "$LOCAL_POLICY_DECISION"
+        if [ "$LOCAL_POLICY_DECISION" = "FAIL" ]; then
+          printf 'FAIL_CLOSED\\n'
+          return 1
+        fi
+        [ "$LOCAL_POLICY_DECISION" = "PASS" ] || return 1
+        authenticated_source_check
+        candidate_push
+      }
+
+      run_candidate
+    BASH
+  end
+
+  def test_policy_result_handoff_reproduces_live_failure_without_unbound_variable
+    stdout, stderr, status = run_bash(policy_result_handoff_script('pass'))
+
+    assert(status.success?, stderr)
+    assert_includes(stdout, "LOCAL_POLICY_RESULT=PASS\n")
+    assert_includes(stdout, "AUTHENTICATED_SOURCE_CHECK\n")
+    assert_includes(stdout, "CANDIDATE_PUSH\n")
+    refute_includes(stderr, 'unbound variable')
+  end
+
+  def test_fail_policy_result_fails_closed_before_authentication
+    stdout, _stderr, status = run_bash(policy_result_handoff_script('fail'))
+
+    refute(status.success?)
+    assert_includes(stdout, "LOCAL_POLICY_RESULT=FAIL\n")
+    assert_includes(stdout, "FAIL_CLOSED\n")
+    refute_includes(stdout, "AUTHENTICATED_SOURCE_CHECK\n")
+    refute_includes(stdout, "CANDIDATE_PUSH\n")
+  end
+
+  def test_missing_policy_result_fails_closed
+    stdout, _stderr, status = run_bash(policy_result_handoff_script('missing'))
+
+    refute(status.success?)
+    refute_includes(stdout, "AUTHENTICATED_SOURCE_CHECK\n")
+    refute_includes(stdout, "CANDIDATE_PUSH\n")
+  end
+
+  def test_malformed_policy_result_fails_closed
+    stdout, _stderr, status = run_bash(policy_result_handoff_script('malformed'))
+
+    refute(status.success?)
+    refute_includes(stdout, "AUTHENTICATED_SOURCE_CHECK\n")
+    refute_includes(stdout, "CANDIDATE_PUSH\n")
+  end
+
+  def test_unknown_policy_result_fails_closed
+    stdout, _stderr, status = run_bash(policy_result_handoff_script('unknown'))
+
+    refute(status.success?)
+    refute_includes(stdout, "AUTHENTICATED_SOURCE_CHECK\n")
+    refute_includes(stdout, "CANDIDATE_PUSH\n")
+  end
+
+  def test_stale_pass_policy_result_is_removed_before_generation
+    stdout, stderr, status = run_bash(policy_result_handoff_script('stale'))
+
+    refute(status.success?)
+    assert_includes(stderr, '[error] evaluator failed')
+    refute_includes(stdout, "LOCAL_POLICY_RESULT=PASS\n")
+    refute_includes(stdout, "AUTHENTICATED_SOURCE_CHECK\n")
+    refute_includes(stdout, "CANDIDATE_PUSH\n")
+  end
+
   def test_authenticated_source_check_is_after_local_policy_and_before_candidate_push
-    local_policy_index = runtime.index('[ "$LOCAL_POLICY_DECISION" = "PASS" ] || fail "local vulnerability policy did not pass"')
+    local_policy_index = runtime.index('LOCAL_POLICY_DECISION="$(policy_result_decision "$WORK_DIR/local-policy-result.json")"')
+    local_policy_pass_index = runtime.index('[ "$LOCAL_POLICY_DECISION" = "PASS" ] || fail "local vulnerability policy did not pass"')
     authenticated_check_index = runtime.index('classify_authoritative_manifest_state "authenticated" "authenticated-source-check"')
     candidate_push_index = runtime.index('docker push "$candidate_ref"')
 
     refute_nil(local_policy_index)
+    refute_nil(local_policy_pass_index)
     refute_nil(authenticated_check_index)
     refute_nil(candidate_push_index)
-    assert_operator(local_policy_index, :<, authenticated_check_index)
+    assert_operator(local_policy_index, :<, local_policy_pass_index)
+    assert_operator(local_policy_pass_index, :<, authenticated_check_index)
     assert_operator(authenticated_check_index, :<, candidate_push_index)
     assert_includes(runtime, 'authenticated authoritative source tag exists before candidate publication')
     assert_includes(runtime, 'authenticated authoritative source check failed closed')
