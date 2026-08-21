@@ -425,6 +425,61 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     refute_includes(runtime, 'authenticated authoritative source check failed closed')
   end
 
+  def test_live_candidate_evidence_failure_reproduces_unexported_source_revision
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      SOURCE_REVISION=59a76860307bb46a135de5794b7380b0e11df59a
+      WORKFLOW_RUN_ID=32434344588
+      WORKFLOW_RUN_ATTEMPT=1
+      ruby -e 'ENV.fetch("SOURCE_REVISION")'
+    BASH
+
+    _stdout, stderr, status = run_bash(script)
+
+    refute(status.success?)
+    assert_includes(stderr, 'key not found: "SOURCE_REVISION"')
+  end
+
+  def test_candidate_evidence_metadata_is_passed_explicitly_to_child_process
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      SOURCE_REVISION=59a76860307bb46a135de5794b7380b0e11df59a
+      WORKFLOW_RUN_ID=32434344588
+      WORKFLOW_RUN_ATTEMPT=1
+      SOURCE_REVISION="$SOURCE_REVISION" \
+        WORKFLOW_RUN_ID="$WORKFLOW_RUN_ID" \
+        WORKFLOW_RUN_ATTEMPT="$WORKFLOW_RUN_ATTEMPT" \
+        ruby -e 'puts [ENV.fetch("SOURCE_REVISION"), ENV.fetch("WORKFLOW_RUN_ID"), ENV.fetch("WORKFLOW_RUN_ATTEMPT")].join(":")'
+    BASH
+
+    stdout, stderr, status = run_bash(script)
+
+    assert(status.success?, stderr)
+    assert_equal("59a76860307bb46a135de5794b7380b0e11df59a:32434344588:1\n", stdout)
+  end
+
+  def test_candidate_evidence_metadata_validation_and_explicit_environment_contract
+    evidence_start = runtime.index('build_publication_evidence()')
+    evidence_body = runtime[evidence_start..]
+    validate_index = evidence_body.index('validate_evidence_metadata "$status" "$authoritative_digest"')
+    ruby_index = evidence_body.index('ruby -r ./scripts/supply-chain/publication.rb -e')
+
+    refute_nil(evidence_start)
+    refute_nil(validate_index)
+    refute_nil(ruby_index)
+    assert_operator(validate_index, :<, ruby_index)
+    assert_includes(runtime, 'SOURCE_REVISION="$SOURCE_REVISION" \\')
+    assert_includes(runtime, 'WORKFLOW_RUN_ID="$WORKFLOW_RUN_ID" \\')
+    assert_includes(runtime, 'WORKFLOW_RUN_ATTEMPT="$WORKFLOW_RUN_ATTEMPT" \\')
+    assert_includes(runtime, 'LOCAL_IMAGE_ID="$LOCAL_IMAGE_ID" \\')
+    assert_includes(runtime, 'LOCAL_ARCHIVE_SHA256="$LOCAL_ARCHIVE_SHA256" \\')
+    assert_includes(runtime, 'CANDIDATE_REGISTRY_DIGEST="${CANDIDATE_REGISTRY_DIGEST:-}" \\')
+    assert_includes(runtime, 'VERIFIED_SCAN_TARGET_DIGEST="${VERIFIED_SCAN_TARGET_DIGEST:-}" \\')
+    assert_includes(runtime, 'POLICY_DECISION="$POLICY_DECISION" \\')
+    assert_includes(runtime, '[ "$(git rev-parse HEAD)" = "$SOURCE_REVISION" ] || fail_evidence_metadata "source_revision"')
+    assert_includes(runtime, '[ "$CANDIDATE_REGISTRY_DIGEST" = "$VERIFIED_SCAN_TARGET_DIGEST" ] || fail_evidence_metadata "scan_target_digest"')
+  end
+
   def test_public_unobservable_local_policy_pass_is_candidate_eligible_not_authoritative_eligible
     script = <<~'BASH'
       set -Eeuo pipefail

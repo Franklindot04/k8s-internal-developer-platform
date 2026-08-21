@@ -187,6 +187,13 @@ class PublicationContractTest < Minitest::Test
     end
   end
 
+  def test_missing_source_revision_fails_closed
+    input = base_input
+    input.delete(:source_revision)
+
+    assert_raises(KeyError) { manifest(input) }
+  end
+
   def test_malformed_digests_reject
     [
       DIGEST_A.upcase,
@@ -199,6 +206,15 @@ class PublicationContractTest < Minitest::Test
     ].each do |value|
       assert_contract_error(/digest/) { SupplyChainPublication.validate_digest!(value) }
     end
+  end
+
+  def test_missing_candidate_digest_fails_closed
+    input = base_input(status: 'candidate')
+    input.delete(:candidate_digest)
+    input.delete(:authoritative_digest)
+    input.delete(:authoritative_repository)
+
+    assert_raises(KeyError) { manifest(input) }
   end
 
   def test_unsafe_workflow_run_ids_reject

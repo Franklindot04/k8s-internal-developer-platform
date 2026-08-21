@@ -56,6 +56,18 @@ validate_source_revision() {
   ruby -r ./scripts/supply-chain/publication.rb -e 'SupplyChainPublication.validate_source_revision!(ARGV.fetch(0))' "$1"
 }
 
+validate_workflow_run_id() {
+  ruby -r ./scripts/supply-chain/publication.rb -e 'SupplyChainPublication.validate_workflow_run_id!(ARGV.fetch(0))' "$1"
+}
+
+validate_workflow_run_attempt() {
+  ruby -r ./scripts/supply-chain/publication.rb -e 'SupplyChainPublication.validate_workflow_run_attempt!(ARGV.fetch(0))' "$1"
+}
+
+validate_sha256_hex() {
+  ruby -r ./scripts/supply-chain/publication.rb -e 'SupplyChainPublication.validate_sha256_hex!(ARGV.fetch(0))' "$1"
+}
+
 candidate_tag() {
   ruby -r ./scripts/supply-chain/publication.rb -e 'puts SupplyChainPublication.candidate_tag(ARGV.fetch(0), ARGV.fetch(1), ARGV.fetch(2))' "$1" "$2" "$3"
 }
@@ -478,6 +490,53 @@ verify_artifact_size() {
   [ "$size" -le "$MAX_EVIDENCE_BYTES" ] || fail "evidence file too large: $(basename "$file")"
 }
 
+fail_evidence_metadata() {
+  fail "candidate_evidence_metadata=invalid field=$1"
+}
+
+validate_evidence_metadata() {
+  local status="$1"
+  local authoritative_digest="${2:-}"
+  local expected_candidate_tag=""
+
+  validate_source_revision "${SOURCE_REVISION:-}" || fail_evidence_metadata "source_revision"
+  [ "$(git rev-parse HEAD)" = "$SOURCE_REVISION" ] || fail_evidence_metadata "source_revision"
+  validate_workflow_run_id "${WORKFLOW_RUN_ID:-}" || fail_evidence_metadata "workflow_run_id"
+  validate_workflow_run_attempt "${WORKFLOW_RUN_ATTEMPT:-}" || fail_evidence_metadata "workflow_run_attempt"
+
+  expected_candidate_tag="$(candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT")"
+  [ "${CANDIDATE_TAG:-}" = "$expected_candidate_tag" ] || fail_evidence_metadata "candidate_tag"
+  validate_digest "${LOCAL_IMAGE_ID:-}" || fail_evidence_metadata "local_image_id"
+  validate_sha256_hex "${LOCAL_ARCHIVE_SHA256:-}" || fail_evidence_metadata "local_archive_sha256"
+  [ "${POLICY_DECISION:-}" = "PASS" ] || [ "${POLICY_DECISION:-}" = "FAIL" ] || fail_evidence_metadata "policy_decision"
+
+  case "$status" in
+    candidate)
+      [ "$POLICY_DECISION" = "PASS" ] || fail_evidence_metadata "policy_decision"
+      validate_digest "${CANDIDATE_REGISTRY_DIGEST:-}" || fail_evidence_metadata "candidate_digest"
+      validate_digest "${VERIFIED_SCAN_TARGET_DIGEST:-}" || fail_evidence_metadata "scan_target_digest"
+      [ "$CANDIDATE_REGISTRY_DIGEST" = "$VERIFIED_SCAN_TARGET_DIGEST" ] || fail_evidence_metadata "scan_target_digest"
+      ;;
+    published)
+      [ "$POLICY_DECISION" = "PASS" ] || fail_evidence_metadata "policy_decision"
+      validate_digest "${CANDIDATE_REGISTRY_DIGEST:-}" || fail_evidence_metadata "candidate_digest"
+      validate_digest "${VERIFIED_SCAN_TARGET_DIGEST:-}" || fail_evidence_metadata "scan_target_digest"
+      [ "$CANDIDATE_REGISTRY_DIGEST" = "$VERIFIED_SCAN_TARGET_DIGEST" ] || fail_evidence_metadata "scan_target_digest"
+      validate_digest "$authoritative_digest" || fail_evidence_metadata "authoritative_digest"
+      ;;
+    existing)
+      [ "$POLICY_DECISION" = "PASS" ] || fail_evidence_metadata "policy_decision"
+      validate_digest "${VERIFIED_SCAN_TARGET_DIGEST:-}" || fail_evidence_metadata "scan_target_digest"
+      validate_digest "$authoritative_digest" || fail_evidence_metadata "authoritative_digest"
+      [ "$VERIFIED_SCAN_TARGET_DIGEST" = "$authoritative_digest" ] || fail_evidence_metadata "authoritative_digest"
+      ;;
+    local_blocked)
+      [ "$POLICY_DECISION" = "FAIL" ] || fail_evidence_metadata "policy_decision"
+      ;;
+    *) fail_evidence_metadata "publication_status" ;;
+  esac
+}
+
 build_publication_evidence() {
   local status="$1"
   local local_state="$2"
@@ -485,9 +544,22 @@ build_publication_evidence() {
   local evidence_path="$WORK_DIR/publication-evidence.json"
   local handoff_path="$WORK_DIR/image-reference.json"
 
+  validate_evidence_metadata "$status" "$authoritative_digest"
+
   PUBLICATION_STATUS="$status" \
+    SOURCE_REVISION="$SOURCE_REVISION" \
+    WORKFLOW_RUN_ID="$WORKFLOW_RUN_ID" \
+    WORKFLOW_RUN_ATTEMPT="$WORKFLOW_RUN_ATTEMPT" \
     LOCAL_STATE="$local_state" \
+    LOCAL_IMAGE_ID="$LOCAL_IMAGE_ID" \
+    LOCAL_ARCHIVE_SHA256="$LOCAL_ARCHIVE_SHA256" \
+    CANDIDATE_REGISTRY_DIGEST="${CANDIDATE_REGISTRY_DIGEST:-}" \
+    VERIFIED_SCAN_TARGET_DIGEST="${VERIFIED_SCAN_TARGET_DIGEST:-}" \
     AUTHORITATIVE_TAG_DIGEST="$authoritative_digest" \
+    SYFT_VERSION_ACTUAL="$SYFT_VERSION_ACTUAL" \
+    GRYPE_VERSION_ACTUAL="$GRYPE_VERSION_ACTUAL" \
+    VULNERABILITY_DATABASE="$VULNERABILITY_DATABASE" \
+    POLICY_DECISION="$POLICY_DECISION" \
     CYCLONEDX_PATH="$WORK_DIR/sbom.cdx.json" \
     SYFT_JSON_PATH="$WORK_DIR/sbom.syft.json" \
     VULNERABILITY_PATH="$WORK_DIR/vulnerabilities.json" \
