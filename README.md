@@ -4,9 +4,9 @@ This repository is being rebuilt into a local-first Kubernetes Internal Develope
 
 ## Current Status
 
-The project is in Stage 6A: supply-chain architecture and trust contracts. Stage 1 established the recovery and engineering baseline, Stage 2 added a real Kind-based local cluster foundation, Stage 3 added Argo CD bootstrap and reconciliation proof, Stage 4 added a reusable Helm workload contract with GitOps runtime validation, and Stage 5 added the developer self-service foundation.
+The project has completed the trusted-publication milestone in Stage 6D for the representative fixture. Stage 1 established the recovery and engineering baseline, Stage 2 added a real Kind-based local cluster foundation, Stage 3 added Argo CD bootstrap and reconciliation proof, Stage 4 added a reusable Helm workload contract with GitOps runtime validation, Stage 5 added the developer self-service foundation, and Stage 6 now has live-proven protected-main trusted publication with authoritative digest handoff.
 
-The local Kubernetes foundation is implemented with Kind. Argo CD is installed from a pinned and checksum-verified upstream manifest, then used to reconcile minimal platform bootstrap state and the golden-path demo workload. Stage 5 can validate, plan, generate, and verify `PlatformService` repository artifacts. Stage 6A defines the supply-chain architecture before build, publication, SBOM, vulnerability, provenance, or signing implementation begins. Kyverno policies, observability, environment promotion, and later application delivery workflows remain target capabilities for later stages.
+The local Kubernetes foundation is implemented with Kind. Argo CD is installed from a pinned and checksum-verified upstream manifest, then used to reconcile minimal platform bootstrap state and the golden-path demo workload. Stage 5 can validate, plan, generate, and verify `PlatformService` repository artifacts. Stage 6 has defined the supply-chain architecture, representative build fixture, untrusted PR evidence path, and trusted OCI publication path through a public authoritative digest. Signing, cryptographic provenance or attestation, registry-attached attestations, Kyverno policies, observability, environment promotion, and later application delivery workflows remain target capabilities for later stages.
 
 ## Target Capabilities
 
@@ -14,8 +14,8 @@ The local Kubernetes foundation is implemented with Kind. Argo CD is installed f
 - GitOps reconciliation with Argo CD
 - Production-quality reusable application packaging with Helm
 - Developer self-service service generation
-- GitHub Actions validation and later CI/supply-chain workflows
-- Trusted OCI publication, immutable image digests, SBOM, vulnerability evidence, and provenance
+- GitHub Actions validation and CI/supply-chain workflows
+- Trusted OCI publication, immutable image digests, SBOM, vulnerability evidence, and future provenance
 - Kubernetes-native policy enforcement with Kyverno
 - Metrics, logs, tracing, alerts, and SRE operating guidance
 - Clear architecture, ADRs, recovery records, and roadmap documentation
