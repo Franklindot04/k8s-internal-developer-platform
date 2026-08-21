@@ -1,6 +1,38 @@
 # Implementation Roadmap
 
-The roadmap is dependency-ordered. Each stage should produce reviewable evidence before the next stage depends on it.
+The roadmap records the dependency-ordered implementation history and the optional future expansion path. Stages 1 through 6D form the completed local-first reference-platform core. Later stages describe useful platform growth, but they are not completion blockers for reviewing the current repository.
+
+## Completed Reference-Platform Core
+
+The completed core demonstrates:
+
+- recovery, branch strategy, ADRs, structure contracts, and repository validation;
+- a reproducible local Kind lifecycle;
+- Argo CD bootstrap and reconciliation proof;
+- a reusable Helm golden-path workload contract;
+- a versioned `PlatformService` intent contract;
+- deterministic Helm values and Argo CD Application generation;
+- safe generated-artifact writes and drift verification;
+- required-check governance with always-reporting gates;
+- untrusted pull-request supply-chain evidence without publication credentials;
+- protected-main trusted publication with public non-authoritative candidate staging, Environment-gated authoritative promotion, immutable digest continuity, validated evidence, and authoritative Stage 5 handoff.
+
+This is enough to call the repository's current local-first reference-platform core complete. The remaining sections preserve future design direction without making those areas mandatory for current completion.
+
+## Optional Future Expansion
+
+The following future areas are intentionally optional unless a later repository decision adopts them as new scope:
+
+- Kubernetes policy enforcement expansion, such as Kyverno policy sets and admission tests;
+- metrics, logging, tracing, dashboards, alerts, and deeper operational visibility;
+- environment promotion orchestration across development, staging, and production-style boundaries;
+- fully automatic generated-service registration or deployment discovery;
+- broader SRE runbooks, SLOs, and failure drills;
+- signing, cryptographic provenance, attestations, and registry-attached attestations;
+- portal or UI integration over the existing `PlatformService` contract;
+- additional infrastructure, cloud, or multi-environment depth.
+
+The optional expansion items should be selected for clear portfolio or operational value, not because an enterprise platform could grow indefinitely.
 
 ## Stage 1: Recovery and Engineering Baseline
 
@@ -66,13 +98,13 @@ Definition of done: a generated service can be reviewed, tested, and deployed wi
 
 Objective: Produce trusted software artifacts and evidence before immutable image digests enter the Stage 5 deployment intent contract.
 
-Principal capabilities: supply-chain architecture and trust contracts, a representative build fixture, reproducible container build, untrusted PR build/test/SBOM/vulnerability verification, trusted OCI publication, immutable image digest output, provenance or attestation bound to the digest, and documented manual handoff into `PlatformService`.
+Principal capabilities: supply-chain architecture and trust contracts, a representative build fixture, reproducible container build, untrusted PR build/test/SBOM/vulnerability verification, trusted OCI publication, immutable image digest output, trusted-publication evidence bound to the digest, and documented manual handoff into `PlatformService`.
 
 Dependencies: golden-path chart, completed Stage 5 `PlatformService` digest contract, and a representative build fixture introduced during Stage 6.
 
 Meaningful validation/evidence: untrusted pull requests can prove build/test/evidence generation without publication credentials; trusted publication can publish an OCI image, resolve its immutable digest, generate required evidence, and hand repository plus digest to Stage 5.
 
-Definition of done: a representative source has a repeatable build contract; tests pass; container build succeeds; untrusted PRs cannot publish; trusted publication exists; the published artifact has an immutable digest; Stage 5 can consume repository plus digest; SBOM, vulnerability evidence, and provenance or attestation exist; required-check behavior remains governable; no personal publication credentials are required where avoidable; documentation explains build, publication, evidence, and digest handoff; environment promotion and Kubernetes admission enforcement remain outside Stage 6.
+Definition of done: a representative source has a repeatable build contract; tests pass; container build succeeds; untrusted PRs cannot publish; trusted publication exists; the published artifact has an immutable digest; Stage 5 can consume repository plus digest; SBOM and vulnerability evidence exist; required-check behavior remains governable; no personal publication credentials are required where avoidable; documentation explains build, publication, evidence, and digest handoff; environment promotion, signing, provenance, attestations, and Kubernetes admission enforcement remain outside Stage 6.
 
 Planned slices:
 

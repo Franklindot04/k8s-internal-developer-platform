@@ -26,6 +26,8 @@ The intended platform separates infrastructure bootstrap, platform capabilities,
 
 See [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) for the target architecture and current repository state. See [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md) for the Stage 6 supply-chain trust, artifact, evidence, publication, and handoff contracts.
 
+For a concise reviewer path through the implemented platform core, see [docs/runbooks/platform-walkthrough.md](docs/runbooks/platform-walkthrough.md).
+
 ## Repository Structure
 
 - `infra/` - cluster bootstrap, Argo CD control-plane bootstrap configuration, future environment infrastructure, and platform policy bootstrap.
@@ -40,7 +42,7 @@ The detailed directory contract is documented in [docs/repository/structure-cont
 
 ## Roadmap
 
-The implementation roadmap is dependency-ordered. Stage 1 establishes repository truth, decisions, validation, and contribution expectations before runtime platform work begins.
+The implementation roadmap records the completed local-first reference-platform core and optional future expansion areas. Later policy, observability, promotion, provenance, and portal work is future scope, not a blocker to reviewing the current core.
 
 See [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md).
 

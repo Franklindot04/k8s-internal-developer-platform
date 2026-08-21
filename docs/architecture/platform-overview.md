@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository is intended to become a Kubernetes Internal Developer Platform for demonstrating practical platform engineering. The platform should make common application delivery workflows repeatable, observable, secure, and reviewable.
+This repository is a local-first Kubernetes Internal Developer Platform reference implementation for demonstrating practical platform engineering. The completed core makes local platform validation, GitOps delivery, reusable workload packaging, self-service artifact generation, CI governance, and trusted image publication reviewable and repeatable.
 
 The platform is local-first. A maintainer should be able to demonstrate the core platform on a workstation without mandatory cloud infrastructure. A future cloud reference deployment may be added, but cloud resources are not required for the primary demonstration path.
 
@@ -19,28 +19,32 @@ The platform serves two groups:
 - Use Git as the source of truth for platform and application delivery.
 - Standardize application packaging through a reusable Helm golden path.
 - Offer developer self-service without hiding operational responsibilities.
-- Enforce baseline security and reliability expectations through policy and validation.
-- Make health, telemetry, and operational evidence visible.
+- Enforce baseline security and reliability expectations through validation and documented boundaries.
+- Make health and operational evidence visible for the implemented local workflows.
 - Keep each implementation stage reviewable and testable.
 
 ## Platform Boundaries
 
-The platform will own cluster bootstrap, GitOps bootstrap, shared Kubernetes standards, the golden-path chart, platform validation, policy, observability integration, and reference workflows.
+The completed core owns cluster bootstrap, GitOps bootstrap, shared Kubernetes standards in the golden-path chart, platform validation, self-service repository artifacts, CI governance, trusted publication evidence, and reference workflows.
+
+Policy engines, observability integration, multi-environment promotion, portal workflows, signing, cryptographic provenance, and registry-attached attestations are optional future expansion areas. They are not blockers for the current reference-platform core.
 
 Application teams remain responsible for service behavior, application tests, service ownership metadata, runtime configuration choices, and responding to service-specific operational signals.
 
 ## Current Repository State
 
-The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, a reproducible Argo CD GitOps control plane for local reconciliation, a reusable Helm golden-path chart for HTTP workloads, and the completed Stage 5 developer self-service foundation. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, minimal Git-managed platform bootstrap state, golden-path chart validation, a GitOps-deployed demo workload, and `platformctl` support for `PlatformService` validation, read-only planning, safe repository generation, and read-only drift verification. It does not yet contain a Kyverno policy set, observability stack, environment promotion model, developer portal, application source delivery workflow, or implemented Stage 6 software supply-chain automation. Stage 6A defines the supply-chain architecture and trust contracts before build implementation begins.
+The current repository includes the recovery and engineering baseline, a reproducible local Kubernetes foundation using Kind, a reproducible Argo CD GitOps control plane for local reconciliation, a reusable Helm golden-path chart for HTTP workloads, the completed Stage 5 developer self-service foundation, and completed Stage 6 supply-chain controls through trusted OCI publication. It contains documentation, governance files, validation scripts, directory contracts, Kind cluster configuration, local cluster lifecycle commands, Argo CD bootstrap configuration, minimal Git-managed platform bootstrap state, golden-path chart validation, a GitOps-deployed demo workload, `platformctl` support for `PlatformService` validation, read-only planning, safe repository generation, read-only drift verification, untrusted PR supply-chain evidence, and live-proven trusted publication with authoritative digest handoff.
+
+It does not yet contain a Kyverno policy set, observability stack, environment promotion model, developer portal, automatic generated-service registration, signing, cryptographic provenance, or registry-attached attestations. Those areas remain optional future milestones rather than current completion blockers.
 
 ## Target Architecture
 
 The target architecture has four conceptual layers:
 
 - Repository control layer: branch strategy, pull requests, validation, ADRs, roadmap, and recovery controls.
-- Platform control plane: Kind for local Kubernetes, Argo CD for GitOps reconciliation, Kyverno for policy enforcement, and observability components.
+- Platform control plane: Kind for local Kubernetes and Argo CD for GitOps reconciliation, with Kyverno and observability components reserved for future expansion.
 - Workload plane: namespaces, quotas, network boundaries, service accounts, Deployments, Services, ingress or Gateway integration, probes, resources, and telemetry.
-- Developer experience layer: `PlatformService` intent, platform-owned policy, deterministic Helm values, deterministic Argo CD Applications, controlled repository artifacts, future service templates, GitOps registration interfaces, and documentation output.
+- Developer experience layer: `PlatformService` intent, platform-owned policy, deterministic Helm values, deterministic Argo CD Applications, controlled repository artifacts, GitOps-ready representation, and documentation output.
 
 ## Developer Responsibilities
 
@@ -52,9 +56,9 @@ The platform owner maintains cluster bootstrap, GitOps structure, Helm standards
 
 ## Control Plane Concepts
 
-Kind provides the local Kubernetes cluster. Argo CD reconciles platform bootstrap state and the golden-path demo workload from Git into the cluster. Helm defines the reusable application packaging contract. Kyverno will enforce Kubernetes-native policies in a later stage. GitHub Actions validates repository changes before merge.
+Kind provides the local Kubernetes cluster. Argo CD reconciles platform bootstrap state and the golden-path demo workload from Git into the cluster. Helm defines the reusable application packaging contract. GitHub Actions validates repository changes before merge. Kyverno can enforce Kubernetes-native policies in a later optional stage.
 
-Kind is implemented as the Stage 2 local Kubernetes foundation. Argo CD is implemented as the Stage 3 GitOps control plane using a pinned non-HA upstream manifest for local development. Helm golden-path packaging is implemented in Stage 4. Kyverno and later platform components remain planned future-stage work.
+Kind is implemented as the Stage 2 local Kubernetes foundation. Argo CD is implemented as the Stage 3 GitOps control plane using a pinned non-HA upstream manifest for local development. Helm golden-path packaging is implemented in Stage 4. Stage 5 self-service artifacts and Stage 6 trusted publication are implemented. Kyverno and later platform components remain optional future-stage work.
 
 ## Workload Plane Concepts
 
@@ -70,21 +74,21 @@ The golden-path Helm chart provides the reusable workload contract targeted by t
 
 ## Environment Model
 
-The planned environment model includes local platform bootstrap plus development, staging, and production-style configuration boundaries. The project will demonstrate promotion and policy behavior locally first, with optional cloud portability later.
+The current environment model is the local platform bootstrap and GitOps runtime proof. Development, staging, and production-style promotion boundaries are optional future expansion.
 
 ## Security Model
 
-Security will be layered across repository validation, branch review, container and dependency checks, Kubernetes RBAC, Pod Security Standards, namespace isolation, network policy, secret handling, and Kyverno policy enforcement.
+Security is layered across repository validation, branch review, container and dependency checks, restricted GitOps projects, workload security defaults, namespace boundaries, digest-pinned images, vulnerability scanning, trusted publication evidence, and protected authoritative promotion.
 
-Current controls include repository validation, protected pull-request workflow, pinned local Kubernetes tooling, pinned Helm validation tooling, pinned and checksum-verified Argo CD installation, restricted AppProjects, digest-pinned runtime images, schema validation, and secure workload defaults. Kyverno policy enforcement remains planned future-stage work.
+Current controls include repository validation, protected pull-request workflow, pinned local Kubernetes tooling, pinned Helm validation tooling, pinned and checksum-verified Argo CD installation, restricted AppProjects, digest-pinned runtime images, schema validation, secure workload defaults, supply-chain PR verification, and live-proven trusted publication. Kyverno policy enforcement remains optional future-stage work.
 
 ## Observability Model
 
-The future observability model will include application and platform metrics, logs, traces, dashboards, alerts, service-level indicators, and runbooks. It will prioritize evidence that a service is healthy and operable, not only deployable.
+The current repository proves health and reconciliation through Kubernetes, Argo CD, Helm, and service validation commands. A fuller observability model with metrics, logs, traces, dashboards, alerts, and service-level indicators remains optional future expansion.
 
 ## Software Delivery Model
 
-GitHub Actions provide repository validation and platform runtime proof workflows. Stage 6 will add language-neutral software supply-chain workflows that verify source, build a representative OCI artifact, generate SBOM and vulnerability evidence, publish only from trusted events, produce an immutable digest, and bind provenance or attestation to that digest. Stage 5 consumes repository plus digest. Environment promotion remains a Stage 9 concern.
+GitHub Actions provide repository validation, platform runtime proof workflows, untrusted supply-chain PR verification, and protected-main trusted publication. The trusted publication path verifies source, builds a representative OCI artifact, generates SBOM and vulnerability evidence, publishes only from trusted events, produces an immutable authoritative digest, and hands that digest to Stage 5. Signing, cryptographic provenance, and attestations remain future expansion.
 
 See [../supply-chain-architecture.md](../supply-chain-architecture.md) for the Stage 6 supply-chain trust, artifact, evidence, publication, and handoff contracts.
 
