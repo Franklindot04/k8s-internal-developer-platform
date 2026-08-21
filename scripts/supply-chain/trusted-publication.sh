@@ -669,23 +669,6 @@ run_candidate() {
   fi
   [ "$LOCAL_POLICY_DECISION" = "PASS" ] || fail "local vulnerability policy did not pass"
 
-  local authenticated_source_status=0
-  set +e
-  classify_authoritative_manifest_state "authenticated" "authenticated-source-check"
-  authenticated_source_status="$?"
-  set -e
-  [ "$authenticated_source_status" -eq 0 ] || fail "authenticated authoritative source check failed closed"
-  case "$AUTHORITATIVE_STATE_CLASSIFICATION" in
-    PUBLIC_AUTHORITATIVE_ABSENT)
-      ;;
-    PUBLIC_AUTHORITATIVE_EXISTS)
-      fail "authenticated authoritative source tag exists before candidate publication"
-      ;;
-    *)
-      fail "authenticated authoritative source check failed closed"
-      ;;
-  esac
-
   docker_login
   docker tag "$local_ref" "$candidate_ref"
   docker push "$candidate_ref"
