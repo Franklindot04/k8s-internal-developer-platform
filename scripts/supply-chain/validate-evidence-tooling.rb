@@ -155,6 +155,29 @@ if File.file?(trusted_publication_runtime)
   fail_with('trusted publication runtime must model local policy before candidate push') unless runtime.index(local_policy_handoff) && runtime.index(local_policy_handoff) < runtime.index('docker push "$candidate_ref"')
   fail_with('trusted publication runtime must not require authenticated authoritative absence before candidate push') if runtime.include?('authenticated-source-check')
   fail_with('trusted publication runtime must require local policy PASS before candidate push') unless runtime.index(local_policy_pass) < runtime.index('docker push "$candidate_ref"')
+  evidence_body = runtime[runtime.index('build_publication_evidence()')..]
+  evidence_metadata_validation = 'validate_evidence_metadata "$status" "$authoritative_digest"'
+  evidence_builder = 'ruby -r ./scripts/supply-chain/publication.rb -e'
+  fail_with('trusted publication runtime must validate evidence metadata before evidence construction') unless evidence_body && evidence_body.index(evidence_metadata_validation) && evidence_body.index(evidence_builder) && evidence_body.index(evidence_metadata_validation) < evidence_body.index(evidence_builder)
+  fail_with('trusted publication runtime must validate evidence source revision') unless runtime.include?('validate_source_revision "${SOURCE_REVISION:-}"') && runtime.include?('[ "$(git rev-parse HEAD)" = "$SOURCE_REVISION" ]')
+  fail_with('trusted publication runtime must validate evidence run identity') unless runtime.include?('validate_workflow_run_id "${WORKFLOW_RUN_ID:-}"') && runtime.include?('validate_workflow_run_attempt "${WORKFLOW_RUN_ATTEMPT:-}"')
+  fail_with('trusted publication runtime must validate evidence candidate tag identity') unless runtime.include?('expected_candidate_tag="$(candidate_tag "$SOURCE_REVISION" "$WORKFLOW_RUN_ID" "$WORKFLOW_RUN_ATTEMPT")"') && runtime.include?('[ "${CANDIDATE_TAG:-}" = "$expected_candidate_tag" ]')
+  fail_with('trusted publication runtime must validate evidence candidate digest continuity') unless runtime.include?('validate_digest "${CANDIDATE_REGISTRY_DIGEST:-}"') && runtime.include?('[ "$CANDIDATE_REGISTRY_DIGEST" = "$VERIFIED_SCAN_TARGET_DIGEST" ]')
+  %w[
+    SOURCE_REVISION
+    WORKFLOW_RUN_ID
+    WORKFLOW_RUN_ATTEMPT
+    LOCAL_IMAGE_ID
+    LOCAL_ARCHIVE_SHA256
+    SYFT_VERSION_ACTUAL
+    GRYPE_VERSION_ACTUAL
+    VULNERABILITY_DATABASE
+    POLICY_DECISION
+  ].each do |key|
+    fail_with("trusted publication runtime must pass #{key} explicitly to evidence builder") unless runtime.include?("#{key}=\"$#{key}\" \\")
+  end
+  fail_with('trusted publication runtime must pass candidate digest explicitly to evidence builder') unless runtime.include?('CANDIDATE_REGISTRY_DIGEST="${CANDIDATE_REGISTRY_DIGEST:-}" \\')
+  fail_with('trusted publication runtime must pass scan target digest explicitly to evidence builder') unless runtime.include?('VERIFIED_SCAN_TARGET_DIGEST="${VERIFIED_SCAN_TARGET_DIGEST:-}" \\')
   fail_with('publication contract must keep candidate and authoritative repositories separate') unless publication_contract.include?('candidate repository must differ from authoritative repository') && publication_contract.include?('authoritative repository must differ from candidate repository')
   candidate_start = runtime.index('run_candidate()')
   authoritative_start = runtime.index('run_authoritative()')
