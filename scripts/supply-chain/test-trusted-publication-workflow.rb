@@ -545,6 +545,96 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     assert_includes(runtime, 'PRE_PROMOTION_EXISTS_DIFFERENT_DIGEST')
   end
 
+  def test_authoritative_reuses_candidate_scanner_metadata_without_local_db_status
+    authoritative_index = runtime.index('run_authoritative()')
+    initialize_index = runtime.index('initialize()')
+    authoritative_body = runtime[authoritative_index...initialize_index]
+
+    assert_includes(runtime, 'reuse_candidate_scanner_metadata()')
+    assert_includes(authoritative_body, 'reuse_candidate_scanner_metadata "$candidate_evidence"')
+    refute_includes(authoritative_body, 'record_tool_versions')
+    assert_includes(runtime, '[ "$VULNERABILITY_EVIDENCE_SOURCE" = "VERIFIED_CANDIDATE_POST_PUSH" ]')
+    assert_includes(runtime, 'grype db status -o json')
+  end
+
+  def test_authoritative_metadata_reuse_follows_digest_and_anonymous_verification
+    authoritative_index = runtime.index('run_authoritative()')
+    initialize_index = runtime.index('initialize()')
+    authoritative_body = runtime[authoritative_index...initialize_index]
+    digest_equality_index = authoritative_body.rindex('[ "$AUTHORITATIVE_TAG_DIGEST" = "$CANDIDATE_REGISTRY_DIGEST" ]')
+    anonymous_index = authoritative_body.rindex('anonymous_pull_by_digest "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST"')
+    reuse_index = authoritative_body.rindex('reuse_candidate_scanner_metadata "$candidate_evidence"')
+    evidence_index = authoritative_body.rindex('build_publication_evidence "published"')
+
+    refute_nil(digest_equality_index)
+    refute_nil(anonymous_index)
+    refute_nil(reuse_index)
+    refute_nil(evidence_index)
+    assert_operator(digest_equality_index, :<, anonymous_index)
+    assert_operator(anonymous_index, :<, reuse_index)
+    assert_operator(reuse_index, :<, evidence_index)
+  end
+
+  def test_authoritative_metadata_reuse_fails_closed_for_digest_mismatch
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      validate_digest() { case "$1" in sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb) return 0 ;; *) return 1 ;; esac; }
+      fail() { printf '[error] %s\n' "$1" >&2; exit 1; }
+      CANDIDATE_REGISTRY_DIGEST="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      candidate_evidence="$(mktemp)"
+      cat >"$candidate_evidence" <<'JSON'
+      {
+        "tools": {"syft": {"version": "1.51.0"}, "grype": {"version": "0.117.0"}},
+        "vulnerability": {"database": "2026-08-20T06:17:08Z", "evidence_source": "VERIFIED_CANDIDATE_POST_PUSH"},
+        "verification": {"scan_target_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+      }
+      JSON
+      reuse_candidate_scanner_metadata() {
+        local candidate_evidence="$1"
+        SYFT_VERSION_ACTUAL="$(jq -er '.tools.syft.version' "$candidate_evidence")" || fail "candidate evidence Syft version missing"
+        GRYPE_VERSION_ACTUAL="$(jq -er '.tools.grype.version' "$candidate_evidence")" || fail "candidate evidence Grype version missing"
+        VULNERABILITY_DATABASE="$(jq -er '.vulnerability.database' "$candidate_evidence")" || fail "candidate evidence vulnerability database metadata missing"
+        VERIFIED_SCAN_TARGET_DIGEST="$(jq -er '.verification.scan_target_digest' "$candidate_evidence")" || fail "candidate evidence scan target digest missing"
+        VULNERABILITY_EVIDENCE_SOURCE="$(jq -er '.vulnerability.evidence_source' "$candidate_evidence")" || fail "candidate evidence vulnerability source missing"
+        validate_digest "$VERIFIED_SCAN_TARGET_DIGEST"
+        [ "$VERIFIED_SCAN_TARGET_DIGEST" = "$CANDIDATE_REGISTRY_DIGEST" ] || fail "candidate scan target digest differs from candidate digest"
+        [ "$VULNERABILITY_EVIDENCE_SOURCE" = "VERIFIED_CANDIDATE_POST_PUSH" ] || fail "candidate vulnerability evidence source is not reusable"
+      }
+      reuse_candidate_scanner_metadata "$candidate_evidence"
+    BASH
+
+    _stdout, stderr, status = run_bash(script)
+
+    refute(status.success?)
+    assert_includes(stderr, 'candidate scan target digest differs from candidate digest')
+  end
+
+  def test_authoritative_metadata_reuse_fails_closed_for_missing_database
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      fail() { printf '[error] %s\n' "$1" >&2; exit 1; }
+      CANDIDATE_REGISTRY_DIGEST="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      candidate_evidence="$(mktemp)"
+      cat >"$candidate_evidence" <<'JSON'
+      {
+        "tools": {"syft": {"version": "1.51.0"}, "grype": {"version": "0.117.0"}},
+        "vulnerability": {"evidence_source": "VERIFIED_CANDIDATE_POST_PUSH"},
+        "verification": {"scan_target_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+      }
+      JSON
+      reuse_candidate_scanner_metadata() {
+        local candidate_evidence="$1"
+        VULNERABILITY_DATABASE="$(jq -er '.vulnerability.database' "$candidate_evidence")" || fail "candidate evidence vulnerability database metadata missing"
+      }
+      reuse_candidate_scanner_metadata "$candidate_evidence"
+    BASH
+
+    _stdout, stderr, status = run_bash(script)
+
+    refute(status.success?)
+    assert_includes(stderr, 'candidate evidence vulnerability database metadata missing')
+  end
+
   def test_authoritative_publication_is_environment_gated
     job = workflow.fetch('jobs').fetch('authoritative')
 

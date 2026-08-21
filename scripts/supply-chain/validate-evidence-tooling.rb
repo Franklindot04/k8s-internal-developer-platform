@@ -172,10 +172,12 @@ if File.file?(trusted_publication_runtime)
     SYFT_VERSION_ACTUAL
     GRYPE_VERSION_ACTUAL
     VULNERABILITY_DATABASE
+    VULNERABILITY_EVIDENCE_SOURCE
     POLICY_DECISION
   ].each do |key|
     fail_with("trusted publication runtime must pass #{key} explicitly to evidence builder") unless runtime.include?("#{key}=\"$#{key}\" \\")
   end
+  fail_with('publication contract must record vulnerability evidence source') unless publication_contract.include?("'evidence_source'") && publication_contract.include?('VERIFIED_CANDIDATE_POST_PUSH')
   fail_with('trusted publication runtime must pass candidate digest explicitly to evidence builder') unless runtime.include?('CANDIDATE_REGISTRY_DIGEST="${CANDIDATE_REGISTRY_DIGEST:-}" \\')
   fail_with('trusted publication runtime must pass scan target digest explicitly to evidence builder') unless runtime.include?('VERIFIED_SCAN_TARGET_DIGEST="${VERIFIED_SCAN_TARGET_DIGEST:-}" \\')
   fail_with('publication contract must keep candidate and authoritative repositories separate') unless publication_contract.include?('candidate repository must differ from authoritative repository') && publication_contract.include?('authoritative repository must differ from candidate repository')
@@ -183,8 +185,13 @@ if File.file?(trusted_publication_runtime)
   authoritative_start = runtime.index('run_authoritative()')
   fail_with('trusted publication runtime must define candidate and authoritative phases') unless candidate_start && authoritative_start && candidate_start < authoritative_start
   candidate_body = runtime[candidate_start...authoritative_start]
+  authoritative_body = runtime[authoritative_start..]
   fail_with('candidate phase must not mutate authoritative repository') if candidate_body.include?('docker buildx imagetools create') || candidate_body.include?('--tag "$AUTHORITATIVE_REPOSITORY:$AUTHORITATIVE_TAG"')
   fail_with('candidate phase must not create authoritative handoff') if candidate_body.include?('image-reference.json')
+  fail_with('trusted publication runtime must reuse validated candidate scanner metadata for authoritative evidence') unless authoritative_body.include?('reuse_candidate_scanner_metadata "$candidate_evidence"')
+  fail_with('authoritative reused-evidence path must not query local Grype DB state') if authoritative_body.include?('record_tool_versions')
+  fail_with('trusted publication runtime must validate reusable candidate scan target digest equality') unless runtime.include?('[ "$VERIFIED_SCAN_TARGET_DIGEST" = "$CANDIDATE_REGISTRY_DIGEST" ] || fail "candidate scan target digest differs from candidate digest"')
+  fail_with('trusted publication runtime must require reusable candidate evidence source') unless runtime.include?('[ "$VULNERABILITY_EVIDENCE_SOURCE" = "VERIFIED_CANDIDATE_POST_PUSH" ] || fail "candidate vulnerability evidence source is not reusable"')
   recheck_index = runtime.index('classify_authoritative_manifest_state "authenticated" "authoritative-recheck"')
   mutation_index = runtime.index('docker buildx imagetools create')
   fail_with('trusted publication runtime must perform Environment-gated authoritative recheck before mutation') unless recheck_index && mutation_index && authoritative_start < recheck_index && recheck_index < mutation_index
