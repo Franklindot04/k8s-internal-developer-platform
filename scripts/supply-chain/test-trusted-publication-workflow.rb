@@ -410,21 +410,73 @@ class TrustedPublicationWorkflowTest < Minitest::Test
     refute_includes(stdout, "CANDIDATE_PUSH\n")
   end
 
-  def test_authenticated_source_check_is_after_local_policy_and_before_candidate_push
+  def test_candidate_push_is_after_local_policy_without_pre_candidate_authoritative_check
     local_policy_index = runtime.index('LOCAL_POLICY_DECISION="$(policy_result_decision "$WORK_DIR/local-policy-result.json")"')
     local_policy_pass_index = runtime.index('[ "$LOCAL_POLICY_DECISION" = "PASS" ] || fail "local vulnerability policy did not pass"')
-    authenticated_check_index = runtime.index('classify_authoritative_manifest_state "authenticated" "authenticated-source-check"')
     candidate_push_index = runtime.index('docker push "$candidate_ref"')
 
     refute_nil(local_policy_index)
     refute_nil(local_policy_pass_index)
-    refute_nil(authenticated_check_index)
     refute_nil(candidate_push_index)
     assert_operator(local_policy_index, :<, local_policy_pass_index)
-    assert_operator(local_policy_pass_index, :<, authenticated_check_index)
-    assert_operator(authenticated_check_index, :<, candidate_push_index)
-    assert_includes(runtime, 'authenticated authoritative source tag exists before candidate publication')
-    assert_includes(runtime, 'authenticated authoritative source check failed closed')
+    assert_operator(local_policy_pass_index, :<, candidate_push_index)
+    refute_includes(runtime, 'authenticated-source-check')
+    refute_includes(runtime, 'authenticated authoritative source tag exists before candidate publication')
+    refute_includes(runtime, 'authenticated authoritative source check failed closed')
+  end
+
+  def test_public_unobservable_local_policy_pass_is_candidate_eligible_not_authoritative_eligible
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      authoritative_eligible=false
+      candidate_push() { printf 'CANDIDATE_PUSH_ELIGIBLE\n'; }
+      authoritative_mutation() { authoritative_eligible=true; printf 'AUTHORITATIVE_MUTATION\n'; }
+      run_candidate() {
+        AUTHORITATIVE_STATE_CLASSIFICATION="PUBLIC_AUTHORITATIVE_UNOBSERVABLE"
+        LOCAL_POLICY_DECISION="PASS"
+        [ "$LOCAL_POLICY_DECISION" = "PASS" ] || return 1
+        candidate_push
+      }
+      run_candidate
+      [ "$authoritative_eligible" = "false" ]
+    BASH
+
+    stdout, stderr, status = run_bash(script)
+
+    assert(status.success?, stderr)
+    assert_equal("CANDIDATE_PUSH_ELIGIBLE\n", stdout)
+  end
+
+  def test_public_unobservable_local_policy_fail_blocks_candidate_and_authoritative
+    script = <<~'BASH'
+      set -Eeuo pipefail
+      candidate_push() { printf 'CANDIDATE_PUSH\n'; }
+      authoritative_mutation() { printf 'AUTHORITATIVE_MUTATION\n'; }
+      run_candidate() {
+        AUTHORITATIVE_STATE_CLASSIFICATION="PUBLIC_AUTHORITATIVE_UNOBSERVABLE"
+        LOCAL_POLICY_DECISION="FAIL"
+        [ "$LOCAL_POLICY_DECISION" = "PASS" ] || return 1
+        candidate_push
+      }
+      run_candidate
+    BASH
+
+    stdout, _stderr, status = run_bash(script)
+
+    refute(status.success?)
+    refute_includes(stdout, "CANDIDATE_PUSH\n")
+    refute_includes(stdout, "AUTHORITATIVE_MUTATION\n")
+  end
+
+  def test_candidate_job_has_no_authoritative_mutation_before_environment_job
+    candidate_index = runtime.index('run_candidate()')
+    authoritative_index = runtime.index('run_authoritative()')
+    candidate_body = runtime[candidate_index...authoritative_index]
+
+    assert_includes(candidate_body, 'docker push "$candidate_ref"')
+    refute_includes(candidate_body, 'docker buildx imagetools create')
+    refute_includes(candidate_body, '--tag "$AUTHORITATIVE_REPOSITORY:$AUTHORITATIVE_TAG"')
+    refute_includes(candidate_body, 'image-reference.json')
   end
 
   def test_authoritative_recheck_is_before_mutation
