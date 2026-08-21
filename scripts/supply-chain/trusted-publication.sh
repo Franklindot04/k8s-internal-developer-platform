@@ -11,6 +11,8 @@ readonly CANDIDATE_PACKAGE_NAME="k8s-internal-developer-platform%2Fsupply-chain-
 readonly AUTHORITATIVE_PACKAGE_NAME="k8s-internal-developer-platform%2Fsupply-chain-fixture"
 readonly MAX_EVIDENCE_BYTES=10485760
 
+SCRIPT_DIR=""
+REPO_ROOT=""
 ROOT=""
 WORK_DIR=""
 RESULT_FILE=""
@@ -32,6 +34,10 @@ fail() {
 
 log() {
   printf '[ok] %s\n' "$1"
+}
+
+repo_path() {
+  printf '%s/%s\n' "$REPO_ROOT" "$1"
 }
 
 require_tool() {
@@ -408,7 +414,7 @@ generate_sbom_and_vulnerability() {
   grype "docker-archive:$(basename "$archive")" -o json >"$WORK_DIR/${prefix}-vulnerabilities.json"
 
   set +e
-  ruby scripts/supply-chain/evaluate-vulnerabilities.rb "$WORK_DIR/${prefix}-vulnerabilities.json" "$WORK_DIR/${prefix}-policy-result.json"
+  ruby "$(repo_path scripts/supply-chain/evaluate-vulnerabilities.rb)" "$WORK_DIR/${prefix}-vulnerabilities.json" "$WORK_DIR/${prefix}-policy-result.json"
   local policy_exit="$?"
   set -e
 
@@ -754,7 +760,9 @@ run_authoritative() {
 }
 
 initialize() {
-  ROOT="$(git rev-parse --show-toplevel)"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
+  ROOT="$REPO_ROOT"
   cd "$ROOT"
   WORK_DIR="${TRUSTED_PUBLICATION_WORK_DIR:-${RUNNER_TEMP:?}/trusted-publication}"
   RESULT_FILE="${TRUSTED_PUBLICATION_RESULT_FILE:-$WORK_DIR/result.env}"
