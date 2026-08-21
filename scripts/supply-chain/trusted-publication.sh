@@ -76,6 +76,41 @@ pre_promotion_recheck_state() {
   ruby -r ./scripts/supply-chain/publication.rb -e 'puts SupplyChainPublication.pre_promotion_recheck_state(classification: ARGV.fetch(0), existing_digest: ARGV.fetch(1), candidate_digest: ARGV.fetch(2))' "$1" "$2" "$3"
 }
 
+policy_result_decision() {
+  ruby -rjson -r "$(repo_path scripts/supply-chain/publication.rb)" -e '
+    path = ARGV.fetch(0)
+    unless File.file?(path)
+      warn "[error] policy result missing: #{path}"
+      exit 1
+    end
+    if File.zero?(path)
+      warn "[error] policy result empty: #{path}"
+      exit 1
+    end
+
+    result = JSON.parse(File.read(path))
+    unless result.is_a?(Hash)
+      warn "[error] policy result must be a JSON object"
+      exit 1
+    end
+
+    decision = result.fetch("decision") do
+      warn "[error] policy result missing decision"
+      exit 1
+    end
+    unless decision.is_a?(String)
+      warn "[error] policy result decision must be a string"
+      exit 1
+    end
+    unless [SupplyChainPublication::PASS, SupplyChainPublication::FAIL].include?(decision)
+      warn "[error] policy result decision must be PASS or FAIL"
+      exit 1
+    end
+
+    puts decision
+  ' "$1"
+}
+
 write_result() {
   mkdir -p "$(dirname "$RESULT_FILE")"
   {
@@ -409,25 +444,22 @@ write_runtime_proof() {
 generate_sbom_and_vulnerability() {
   local archive="$1"
   local prefix="$2"
+  local policy_result="$WORK_DIR/${prefix}-policy-result.json"
+
+  rm -f "$policy_result"
 
   syft "docker-archive:$(basename "$archive")" -o cyclonedx-json="$WORK_DIR/${prefix}-sbom.cdx.json" -o syft-json="$WORK_DIR/${prefix}-sbom.syft.json"
   grype "docker-archive:$(basename "$archive")" -o json >"$WORK_DIR/${prefix}-vulnerabilities.json"
 
   set +e
-  ruby "$(repo_path scripts/supply-chain/evaluate-vulnerabilities.rb)" "$WORK_DIR/${prefix}-vulnerabilities.json" "$WORK_DIR/${prefix}-policy-result.json"
+  ruby "$(repo_path scripts/supply-chain/evaluate-vulnerabilities.rb)" "$WORK_DIR/${prefix}-vulnerabilities.json" "$policy_result"
   local policy_exit="$?"
   set -e
 
   local decision=""
-  decision="$(jq -r '.decision // empty' "$WORK_DIR/${prefix}-policy-result.json")"
+  decision="$(policy_result_decision "$policy_result")"
   [ "$decision" = "PASS" ] || [ "$decision" = "FAIL" ] || fail "vulnerability policy did not produce a valid decision"
   [ "$policy_exit" -eq 0 ] || [ "$decision" = "FAIL" ] || fail "vulnerability policy evaluator failed"
-
-  if [ "$prefix" = "local" ]; then
-    LOCAL_POLICY_DECISION="$decision"
-  else
-    POLICY_DECISION="$decision"
-  fi
 }
 
 copy_evidence_set() {
@@ -603,6 +635,7 @@ run_existing() {
   docker image save --output "$archive" "$AUTHORITATIVE_REPOSITORY@$AUTHORITATIVE_TAG_DIGEST"
   LOCAL_ARCHIVE_SHA256="$(sha256_file "$archive")"
   (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$archive" "registry")
+  POLICY_DECISION="$(policy_result_decision "$WORK_DIR/registry-policy-result.json")"
   copy_evidence_set "registry"
   record_tool_versions
   [ "$POLICY_DECISION" = "PASS" ] || fail "existing publication vulnerability policy did not pass"
@@ -624,6 +657,8 @@ run_candidate() {
   build_local_candidate "$local_ref" "$local_archive"
   (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$local_archive" "local")
   record_tool_versions
+  LOCAL_POLICY_DECISION="$(policy_result_decision "$WORK_DIR/local-policy-result.json")"
+  printf '[ok] local_policy_result=%s\n' "$LOCAL_POLICY_DECISION"
 
   if [ "$LOCAL_POLICY_DECISION" = "FAIL" ]; then
     POLICY_DECISION="FAIL"
@@ -667,6 +702,7 @@ run_candidate() {
   write_runtime_proof "$candidate_digest_ref" "$WORK_DIR/registry-runtime-proof.json"
   docker image save --output "$registry_archive" "$candidate_digest_ref"
   (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$registry_archive" "registry")
+  POLICY_DECISION="$(policy_result_decision "$WORK_DIR/registry-policy-result.json")"
   copy_evidence_set "registry"
   [ "$POLICY_DECISION" = "PASS" ] || fail "post-push vulnerability policy blocked authoritative publication"
 
