@@ -27,7 +27,7 @@ Stage 6 produces trusted artifacts. Stage 5 describes deployment intent. Stage 7
 
 Stage 5 requires `spec.image.repository` and a mandatory lowercase `sha256:<digest>` in each `PlatformService`. Tags are not accepted in the developer-facing contract. The values compiler maps that intent into the Stage 4 golden-path chart with an empty tag and a digest, so deployment identity remains immutable.
 
-Today, that digest is an explicit external input. The repository contains pull-request build, SBOM, vulnerability, and policy verification for merge safety, but it does not yet contain a trusted registry publication pipeline, provenance pipeline, or signing pipeline.
+Today, that digest can come from the trusted publication path documented in this stage. The repository contains pull-request build, SBOM, vulnerability, and policy verification for merge safety, plus a protected-main trusted publication workflow that produces an authoritative registry digest and Stage 5 handoff. Provenance, attestations, registry-attached attestations, signing, broader deployment orchestration, and portal integration remain future milestones.
 
 ## Repository Boundary
 
@@ -109,7 +109,70 @@ Stage 6D must ensure the exact deployable artifact has an immutable digest, SBOM
 
 Stage 6D1 establishes the local trusted-publication engine and contracts without live registry mutation. It locks GHCR repository naming for the representative supply-chain fixture, source-revision and registry-digest validation, attempt-aware non-authoritative candidate references, authoritative source-revision convenience tags, same-source rerun safety, publication evidence validation, and the machine-readable `image-reference.json` Stage 5 handoff shape. The first live GHCR attempt proved that workflow-created packages from this public repository are public, so the old private candidate quarantine model is retired. The active trust boundary is runner-local quarantine before any registry push, followed by verified public candidate staging in `ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture-candidates`; authoritative evidence and Stage 5 handoff use only `ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture`.
 
-Stage 6D2 is in recovery with a split protected-main workflow. The candidate job performs exactly one local application build, local runtime proof, local SBOM generation, local Grype scanning, and local policy evaluation before GHCR authentication and candidate push. Local Docker image IDs and archive SHA-256 values are evidence only, not registry digest authority. Registry digest continuity begins after the verified public candidate exists, and successful authoritative publication requires candidate registry digest, verified scan target digest, authoritative digest, and handoff digest to match. The authoritative job downloads validated candidate evidence and is isolated behind the protected `authoritative-publication` GitHub Environment. Only after Environment approval may it publish the authoritative tag, prove public package metadata, prove digest equality, prove anonymous pull-by-digest, and emit the Stage 5 handoff. This branch does not create or configure the Environment, delete the failed public candidate, alter package visibility, add a personal access token, implement provenance, implement attestations, sign artifacts, or mutate Stage 5 services.
+Stage 6D2 is complete and live-proven for the representative fixture. The candidate job performs exactly one local application build, local runtime proof, local SBOM generation, local Grype scanning, and local policy evaluation before GHCR authentication and candidate push. Local Docker image IDs and archive SHA-256 values are evidence only, not registry digest authority. Registry digest continuity begins after the verified public candidate exists, and successful authoritative publication requires candidate registry digest, verified scan target digest, authoritative digest, and handoff digest to match. The authoritative job downloads validated candidate evidence and is isolated behind the protected `authoritative-publication` GitHub Environment. Only after Environment approval may it perform the authenticated source-tag recheck, publish the authoritative tag from the exact candidate digest without rebuild, prove public package metadata, prove digest equality, prove anonymous pull-by-digest, validate authoritative evidence, and emit the Stage 5 handoff. Stage 6D does not create or configure the Environment, delete failed public candidates, alter package visibility, add a personal access token, implement provenance, implement attestations, sign artifacts, or mutate Stage 5 services.
+
+## Trusted Publication Invariants
+
+Trusted publication has two public registry roles:
+
+- Candidate: verified public staging in `ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture-candidates`. A candidate is non-authoritative and never grants deployment eligibility or Stage 5 handoff by itself.
+- Authoritative: the deployable publication in `ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture`. Stage 5 consumes only this repository by immutable digest.
+
+Durable invariants:
+
+- Authority requires the protected `authoritative-publication` Environment review.
+- The authenticated authoritative recheck occurs after Environment approval and before registry mutation.
+- Authority originates from the verified candidate digest, not from a rebuild.
+- Candidate registry digest, verified post-push scan target digest, authoritative digest, and handoff digest must be equal.
+- Anonymous authoritative registry verification is required before the handoff is valid.
+- Stage 5 handoff is emitted only after authoritative evidence validates.
+- Ambiguous, denied, rate-limited, server-error, malformed, network-failure, and digest-collision states fail closed.
+- `latest`, `main`, and `stable` are not trusted publication tags for candidate or authoritative repositories.
+
+The public state model distinguishes `PUBLIC_AUTHORITATIVE_EXISTS`, `PUBLIC_AUTHORITATIVE_ABSENT`, `PUBLIC_AUTHORITATIVE_UNOBSERVABLE`, and `PUBLIC_AUTHORITATIVE_FAILURE`. Unobservable is not absent. First-publication behavior showed that anonymous access to a never-created namespace may be unobservable; after the public authoritative repository exists, a missing source-specific tag can be classified as `404` / `MANIFEST_UNKNOWN` / `PUBLIC_AUTHORITATIVE_ABSENT`.
+
+Authenticated collision handling is:
+
+| State | Decision |
+| --- | --- |
+| Absent | Promotion eligible. |
+| Exists with same digest | Verified idempotent handling. |
+| Exists with different digest | Fail closed. |
+| 401, 403, 429, 5xx, network failure, malformed, or unknown | Fail closed. |
+
+## Trusted Publication Live Proof
+
+The trusted publication milestone is `COMPLETE - LIVE PROVEN` for the successful protected-main run:
+
+| Property | Live proof/result | Evidence identifier |
+| --- | --- | --- |
+| Source | Protected `main` | `398d171e6331c2d1c8cea307a7ae725cd47a1e51` |
+| Workflow run | Success | [run 32476158117](https://github.com/Franklindot04/k8s-internal-developer-platform/actions/runs/32476158117) |
+| Attempt | First attempt, no rerun | `1` |
+| Application builds | One local application build | Candidate job success |
+| Candidate digest | `sha256:11b7fc3a664eec61aa5833389deeba0e3f99f7ecbdeaa4aa817199bfc50f2b4a` | `candidate-398d171e6331c2d1c8cea307a7ae725cd47a1e51-run-32476158117-attempt-1` |
+| Post-push scan digest | Same digest | `VERIFIED_CANDIDATE_POST_PUSH` |
+| Environment approval | Required and used | `authoritative-publication` |
+| Authenticated recheck | `404` / `MANIFEST_UNKNOWN` / `PUBLIC_AUTHORITATIVE_ABSENT` | Promotion eligible |
+| Authoritative digest | Same digest | `sha-398d171e6331c2d1c8cea307a7ae725cd47a1e51` |
+| Anonymous verification | Public authoritative digest verified | Authoritative repository by digest |
+| Authoritative evidence artifact | Valid | `trusted-publication-authoritative-398d171e6331c2d1c8cea307a7ae725cd47a1e51-32476158117-1` |
+| Stage 5 handoff | Valid authoritative digest handoff | `image-reference.json` |
+| Overall conclusion | `COMPLETE - LIVE PROVEN` | Workflow success |
+
+The successful Stage 5 handoff reference is:
+
+```text
+ghcr.io/franklindot04/k8s-internal-developer-platform/supply-chain-fixture@sha256:11b7fc3a664eec61aa5833389deeba0e3f99f7ecbdeaa4aa817199bfc50f2b4a
+```
+
+Stage 5 must not consume a candidate tag, candidate repository, authoritative tag-only reference, or local image ID.
+
+The candidate post-push vulnerability evidence used Grype `0.117.0` with database metadata `2026-08-21T06:17:24Z`. The vulnerability report checksum is `466318643671536b6edc571622dc5ac999a80b394da31cc687f903a8d8aa2ef0`, the evidence source is `VERIFIED_CANDIDATE_POST_PUSH`, and the policy decision is `PASS`. The authoritative artifact is the same OCI digest as the verified candidate artifact, so authoritative evidence reuses the validated candidate post-push scanner metadata and vulnerability evidence. This is not an independent authoritative Grype rescan.
+
+Live validation exposed several boundary and process-isolation defects during development. Each failed safely before the relevant downstream trust transition. The final architecture reflects corrections for first-publication public-state ambiguity, fail-closed state-classification control flow, repository-owned helper path independence, explicit policy artifact propagation across process boundaries, separation of candidate staging from authoritative collision checking, explicit candidate evidence metadata propagation, and fresh-runner independence for reused scanner metadata.
+
+Historical registry artifacts remain forensic evidence only. The historical partial authority `sha-f23bd6b5f0ed5ac47411162e9516bd64d5c58dce` resolves to `sha256:be46dfd8d13254517024d3fbe158fd7a304c848c5b3129147d6682fd50bf8eea`, but it is `REGISTRY-VERIFIED` and `WORKFLOW-INCOMPLETE`; it is not a successful trusted publication. Historical candidates include `candidate-f23bd6b5f0ed5ac47411162e9516bd64d5c58dce-run-32436359458-attempt-1` at the same digest and `candidate-59a76860307bb46a135de5794b7380b0e11df59a-run-32434344588-attempt-1` at `sha256:83b96769b67bf19fd9fdc5a988a52d2d3ff292e1b067512d942596148d160cf1`.
 
 ## Registry Contract
 
@@ -217,7 +280,7 @@ Stage 6A does not make any workflow required. Trusted publish workflows are not 
 
 PR verification must not receive publication credentials.
 
-Trusted publication should use the minimum write scope needed. For the initial GHCR workflow, `GITHUB_TOKEN` with job-local package write permission is preferred over a personal access token. OIDC, attestations, and signing remain outside the Stage 6D boundary.
+Trusted publication should use the minimum write scope needed. For the initial GHCR workflow, the built-in GitHub Actions token with job-local package write permission is preferred over a personal access token. OIDC, attestations, and signing remain outside the Stage 6D boundary.
 
 No credentials are created during Stage 6A.
 
@@ -257,7 +320,7 @@ Complete. Proves untrusted PR verification with no publication credentials, rele
 
 ### Stage 6D - Trusted OCI Publication & Immutable Digest
 
-In progress. The local trusted-publication engine, contracts, boundary hardening, and protected-main GHCR workflow are implemented for review; the first controlled live publication is not yet proven.
+Complete and live-proven for the representative fixture. The protected-main workflow published a verified public candidate, passed the protected `authoritative-publication` Environment gate, promoted the exact candidate digest without rebuild, verified the authoritative digest anonymously, validated authoritative evidence, and emitted a digest-pinned Stage 5 handoff.
 
 ### Stage 6E - Provenance / Attestation
 
