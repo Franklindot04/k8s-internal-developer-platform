@@ -20,6 +20,12 @@ module SupplyChainPublication
   HANDOFF_FILE = 'image-reference.json'
   ALLOWED_STATUSES = %w[local_blocked candidate published existing].freeze
   LOCAL_STATES = %w[LOCAL_VERIFIED LOCAL_BLOCKED EXISTING_PUBLICATION].freeze
+  VULNERABILITY_EVIDENCE_SOURCES = {
+    'local_blocked' => 'LOCAL_QUARANTINE_SCAN',
+    'candidate' => 'VERIFIED_CANDIDATE_POST_PUSH',
+    'published' => 'VERIFIED_CANDIDATE_POST_PUSH',
+    'existing' => 'EXISTING_AUTHORITATIVE_SCAN'
+  }.freeze
   PASS = 'PASS'
   FAIL = 'FAIL'
   PUBLIC_AUTHORITATIVE_EXISTS = 'PUBLIC_AUTHORITATIVE_EXISTS'
@@ -318,6 +324,21 @@ module SupplyChainPublication
     value.to_s.sub(/\Av/, '')
   end
 
+  def validate_vulnerability_database!(value)
+    fail_contract('vulnerability database metadata missing') unless value.is_a?(String)
+    fail_contract('vulnerability database metadata missing') if value.empty?
+    fail_contract('vulnerability database metadata malformed') unless value.match?(/\A[0-9A-Za-z._:+-]+\z/)
+
+    value
+  end
+
+  def validate_vulnerability_evidence_source!(value, status)
+    expected = VULNERABILITY_EVIDENCE_SOURCES.fetch(status)
+    fail_contract('vulnerability evidence source mismatch') unless value == expected
+
+    value
+  end
+
   def sha256_file(path)
     fail_contract("file missing: #{path}") unless File.file?(path)
 
@@ -388,7 +409,8 @@ module SupplyChainPublication
       },
       'vulnerability' => {
         'report' => evidence_file(input.fetch(:vulnerability_report_filename), input.fetch(:vulnerability_report_sha256)),
-        'database' => input.fetch(:vulnerability_database),
+        'database' => validate_vulnerability_database!(input.fetch(:vulnerability_database)),
+        'evidence_source' => validate_vulnerability_evidence_source!(input.fetch(:vulnerability_evidence_source), status),
         'policy_result' => evidence_file(input.fetch(:policy_result_filename), input.fetch(:policy_result_sha256)),
         'decision' => policy_decision
       },
@@ -479,6 +501,8 @@ module SupplyChainPublication
     sbom = manifest.fetch('sbom')
     vulnerability = manifest.fetch('vulnerability')
     publication = manifest.fetch('publication')
+    status = publication.fetch('status')
+    fail_contract('invalid publication status') unless ALLOWED_STATUSES.include?(status)
 
     source_revision = validate_source_revision!(source.fetch('revision'))
     fail_contract('source repository mismatch') unless source.fetch('repository') == SOURCE_REPOSITORY
@@ -512,12 +536,11 @@ module SupplyChainPublication
     end
     validate_sha256_hex!(vulnerability.fetch('report').fetch('sha256'))
     validate_sha256_hex!(vulnerability.fetch('policy_result').fetch('sha256'))
-    fail_contract('vulnerability database metadata missing') if vulnerability.fetch('database').to_s.empty?
+    validate_vulnerability_database!(vulnerability.fetch('database'))
+    validate_vulnerability_evidence_source!(vulnerability.fetch('evidence_source'), status)
 
     decision = vulnerability.fetch('decision')
     fail_contract('policy decision must be PASS or FAIL') unless [PASS, FAIL].include?(decision)
-    status = publication.fetch('status')
-    fail_contract('invalid publication status') unless ALLOWED_STATUSES.include?(status)
 
     case status
     when 'local_blocked'

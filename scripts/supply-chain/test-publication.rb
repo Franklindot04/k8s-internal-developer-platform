@@ -46,7 +46,13 @@ class PublicationContractTest < Minitest::Test
       syft_json_sha256: sha('syft-json'),
       vulnerability_report_filename: 'vulnerabilities.json',
       vulnerability_report_sha256: sha('vulnerabilities'),
-      vulnerability_database: 'synthetic-db',
+      vulnerability_database: '2026-08-20T06:17:08Z',
+      vulnerability_evidence_source: {
+        'local_blocked' => 'LOCAL_QUARANTINE_SCAN',
+        'candidate' => 'VERIFIED_CANDIDATE_POST_PUSH',
+        'published' => 'VERIFIED_CANDIDATE_POST_PUSH',
+        'existing' => 'EXISTING_AUTHORITATIVE_SCAN'
+      }.fetch(status),
       policy_result_filename: 'policy-result.json',
       policy_result_sha256: sha('policy-result'),
       policy_decision: policy
@@ -71,6 +77,7 @@ class PublicationContractTest < Minitest::Test
       handoff = SupplyChainPublication.build_handoff(validated, SupplyChainPublication.sha256_file(path))
 
       assert_equal('published', validated.fetch('publication').fetch('status'))
+      assert_equal('VERIFIED_CANDIDATE_POST_PUSH', validated.fetch('vulnerability').fetch('evidence_source'))
       assert_equal(SupplyChainPublication::CANDIDATE_REPOSITORY, validated.fetch('candidate').fetch('repository'))
       assert_equal(SupplyChainPublication::AUTHORITATIVE_REPOSITORY, validated.fetch('authoritative').fetch('repository'))
       assert_equal(DIGEST_A, handoff.fetch('image').fetch('digest'))
@@ -141,6 +148,36 @@ class PublicationContractTest < Minitest::Test
     input[:authoritative_digest] = DIGEST_B
 
     assert_contract_error(/publication digest continuity mismatch/) { manifest(input) }
+  end
+
+  def test_missing_vulnerability_database_metadata_fails_closed
+    input = base_input
+    input.delete(:vulnerability_database)
+
+    assert_raises(KeyError) { manifest(input) }
+  end
+
+  def test_malformed_vulnerability_database_metadata_fails_closed
+    ["", "2026-08-20 06:17:08Z", "2026-08-20T06:17:08Z\n"].each do |value|
+      input = base_input
+      input[:vulnerability_database] = value
+
+      assert_contract_error(/vulnerability database metadata/) { manifest(input) }
+    end
+  end
+
+  def test_missing_grype_version_fails_closed
+    input = base_input
+    input.delete(:grype_version)
+
+    assert_raises(KeyError) { manifest(input) }
+  end
+
+  def test_published_state_requires_verified_candidate_post_push_evidence_source
+    input = base_input
+    input[:vulnerability_evidence_source] = 'INDEPENDENT_AUTHORITATIVE_SCAN'
+
+    assert_contract_error(/vulnerability evidence source mismatch/) { manifest(input) }
   end
 
   def test_handoff_digest_mismatch_fails

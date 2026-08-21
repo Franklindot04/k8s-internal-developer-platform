@@ -559,6 +559,7 @@ build_publication_evidence() {
     SYFT_VERSION_ACTUAL="$SYFT_VERSION_ACTUAL" \
     GRYPE_VERSION_ACTUAL="$GRYPE_VERSION_ACTUAL" \
     VULNERABILITY_DATABASE="$VULNERABILITY_DATABASE" \
+    VULNERABILITY_EVIDENCE_SOURCE="$VULNERABILITY_EVIDENCE_SOURCE" \
     POLICY_DECISION="$POLICY_DECISION" \
     CYCLONEDX_PATH="$WORK_DIR/sbom.cdx.json" \
     SYFT_JSON_PATH="$WORK_DIR/sbom.syft.json" \
@@ -590,6 +591,7 @@ build_publication_evidence() {
       vulnerability_report_filename: "vulnerabilities.json",
       vulnerability_report_sha256: SupplyChainPublication.sha256_file(ENV.fetch("VULNERABILITY_PATH")),
       vulnerability_database: ENV.fetch("VULNERABILITY_DATABASE"),
+      vulnerability_evidence_source: ENV.fetch("VULNERABILITY_EVIDENCE_SOURCE"),
       policy_result_filename: "policy-result.json",
       policy_result_sha256: SupplyChainPublication.sha256_file(ENV.fetch("POLICY_RESULT_PATH")),
       policy_decision: ENV.fetch("POLICY_DECISION")
@@ -664,6 +666,23 @@ record_tool_versions() {
   VULNERABILITY_DATABASE="$(grype db status -o json | jq -r '.built // .updated // .schemaVersion // "unknown"')"
 }
 
+reuse_candidate_scanner_metadata() {
+  local candidate_evidence="$1"
+
+  SYFT_VERSION_ACTUAL="$(jq -er '.tools.syft.version' "$candidate_evidence")" || fail "candidate evidence Syft version missing"
+  GRYPE_VERSION_ACTUAL="$(jq -er '.tools.grype.version' "$candidate_evidence")" || fail "candidate evidence Grype version missing"
+  VULNERABILITY_DATABASE="$(jq -er '.vulnerability.database' "$candidate_evidence")" || fail "candidate evidence vulnerability database metadata missing"
+  VERIFIED_SCAN_TARGET_DIGEST="$(jq -er '.verification.scan_target_digest' "$candidate_evidence")" || fail "candidate evidence scan target digest missing"
+  VULNERABILITY_EVIDENCE_SOURCE="$(jq -er '.vulnerability.evidence_source' "$candidate_evidence")" || fail "candidate evidence vulnerability source missing"
+
+  [ -n "$SYFT_VERSION_ACTUAL" ] || fail "candidate evidence Syft version missing"
+  [ -n "$GRYPE_VERSION_ACTUAL" ] || fail "candidate evidence Grype version missing"
+  [ -n "$VULNERABILITY_DATABASE" ] || fail "candidate evidence vulnerability database metadata missing"
+  validate_digest "$VERIFIED_SCAN_TARGET_DIGEST"
+  [ "$VERIFIED_SCAN_TARGET_DIGEST" = "$CANDIDATE_REGISTRY_DIGEST" ] || fail "candidate scan target digest differs from candidate digest"
+  [ "$VULNERABILITY_EVIDENCE_SOURCE" = "VERIFIED_CANDIDATE_POST_PUSH" ] || fail "candidate vulnerability evidence source is not reusable"
+}
+
 build_local_candidate() {
   local local_ref="$1"
   local archive="$2"
@@ -710,6 +729,7 @@ run_existing() {
   POLICY_DECISION="$(policy_result_decision "$WORK_DIR/registry-policy-result.json")"
   copy_evidence_set "registry"
   record_tool_versions
+  VULNERABILITY_EVIDENCE_SOURCE="EXISTING_AUTHORITATIVE_SCAN"
   [ "$POLICY_DECISION" = "PASS" ] || fail "existing publication vulnerability policy did not pass"
 
   build_publication_evidence "existing" "EXISTING_PUBLICATION" "$AUTHORITATIVE_TAG_DIGEST"
@@ -734,6 +754,7 @@ run_candidate() {
 
   if [ "$LOCAL_POLICY_DECISION" = "FAIL" ]; then
     POLICY_DECISION="FAIL"
+    VULNERABILITY_EVIDENCE_SOURCE="LOCAL_QUARANTINE_SCAN"
     copy_evidence_set "local"
     build_publication_evidence "local_blocked" "LOCAL_BLOCKED"
     prepare_artifact "false"
@@ -759,6 +780,7 @@ run_candidate() {
   (cd "$WORK_DIR" && generate_sbom_and_vulnerability "$registry_archive" "registry")
   POLICY_DECISION="$(policy_result_decision "$WORK_DIR/registry-policy-result.json")"
   copy_evidence_set "registry"
+  VULNERABILITY_EVIDENCE_SOURCE="VERIFIED_CANDIDATE_POST_PUSH"
   [ "$POLICY_DECISION" = "PASS" ] || fail "post-push vulnerability policy blocked authoritative publication"
 
   build_publication_evidence "candidate" "LOCAL_VERIFIED"
@@ -807,8 +829,7 @@ run_authoritative() {
           cp "$(dirname "$candidate_evidence")/vulnerabilities.json" "$WORK_DIR/vulnerabilities.json"
           cp "$(dirname "$candidate_evidence")/policy-result.json" "$WORK_DIR/policy-result.json"
           cp "$(dirname "$candidate_evidence")/candidate-manifest.json" "$WORK_DIR/candidate-manifest.json"
-          record_tool_versions
-          VERIFIED_SCAN_TARGET_DIGEST="$CANDIDATE_REGISTRY_DIGEST"
+          reuse_candidate_scanner_metadata "$candidate_evidence"
           build_publication_evidence "published" "LOCAL_VERIFIED" "$AUTHORITATIVE_TAG_DIGEST"
           prepare_artifact "true"
           PUBLICATION_STATUS="success"
@@ -843,8 +864,7 @@ run_authoritative() {
   cp "$(dirname "$candidate_evidence")/vulnerabilities.json" "$WORK_DIR/vulnerabilities.json"
   cp "$(dirname "$candidate_evidence")/policy-result.json" "$WORK_DIR/policy-result.json"
   cp "$(dirname "$candidate_evidence")/candidate-manifest.json" "$WORK_DIR/candidate-manifest.json"
-  record_tool_versions
-  VERIFIED_SCAN_TARGET_DIGEST="$CANDIDATE_REGISTRY_DIGEST"
+  reuse_candidate_scanner_metadata "$candidate_evidence"
   build_publication_evidence "published" "LOCAL_VERIFIED" "$AUTHORITATIVE_TAG_DIGEST"
   prepare_artifact "true"
   PUBLICATION_STATUS="success"
