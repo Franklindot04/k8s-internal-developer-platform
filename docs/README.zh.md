@@ -1,6 +1,6 @@
 # Kubernetes Internal Developer Platform
 
-[English](README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
+[English](../README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
 
 本仓库正在重建为一个以本地优先（local-first）为方法的 Kubernetes 内部开发者平台（IDP）作品集项目。目标是通过可复现的 Kubernetes 环境、GitOps 交付、可复用的 Helm golden path、开发者自助服务、软件供应链控制、策略执行、可观测性、CI/CD 和运维文档来展示实用的平台工程能力。
 
@@ -26,9 +26,9 @@
 
 预期平台将基础设施 bootstrap、平台能力、参考 workload、开发者工具和文档分离。本地演示路径将能够在无需强制云支出的情况下运行，同时架构为未来可选的云参考部署留出空间。
 
-目标架构和当前仓库状态请参阅 [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md)。第 6 阶段供应链信任、artefact、证据、发布和移交契约请参阅 [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md)。
+目标架构和当前仓库状态请参阅 [docs/architecture/platform-overview.md](architecture/platform-overview.md)。第 6 阶段供应链信任、artefact、证据、发布和移交契约请参阅 [docs/supply-chain-architecture.md](supply-chain-architecture.md)。
 
-已实现平台核心的简明评审路径请参阅 [docs/runbooks/platform-walkthrough.md](docs/runbooks/platform-walkthrough.md)。
+已实现平台核心的简明评审路径请参阅 [docs/runbooks/platform-walkthrough.md](runbooks/platform-walkthrough.md)。
 
 ## 仓库结构
 
@@ -40,13 +40,13 @@
 - `.github/` – 仓库验证和本地平台证明工作流。
 - `scripts/` – 仓库验证、本地 Kubernetes、GitOps、Helm chart 和 golden path 生命周期脚本。
 
-详细的目录契约记录在 [docs/repository/structure-contract.md](docs/repository/structure-contract.md)。
+详细的目录契约记录在 [docs/repository/structure-contract.md](repository/structure-contract.md)。
 
 ## 路线图
 
 实施路线图记录了已完成的 local-first 参考平台核心和可选的未来扩展领域。后续的策略、可观测性、晋升、provenance 和门户工作属于未来范围，不是审查当前核心的阻碍。
 
-请参阅 [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md)。
+请参阅 [docs/roadmap/implementation-roadmap.md](roadmap/implementation-roadmap.md)。
 
 ## 验证
 
@@ -72,7 +72,7 @@ make cluster-validate
 make cluster-delete
 ```
 
-本地平台使用集群名称 `idp-local` 和 kubeconfig 上下文 `kind-idp-local`。支持的版本、生命周期行为、验证和故障排除请参阅 [docs/local-kubernetes.md](docs/local-kubernetes.md)。
+本地平台使用集群名称 `idp-local` 和 kubeconfig 上下文 `kind-idp-local`。支持的版本、生命周期行为、验证和故障排除请参阅 [docs/local-kubernetes.md](local-kubernetes.md)。
 
 ## GitOps Control Plane
 
@@ -87,7 +87,7 @@ make gitops-test-reconciliation
 make gitops-delete
 ```
 
-GitOps bootstrap 使用 `argocd` namespace，默认从 `main` 对账 `platform-bootstrap` Application，并证明 drift 修正和托管资源的重新创建。请参阅 [docs/gitops.md](docs/gitops.md)。
+GitOps bootstrap 使用 `argocd` namespace，默认从 `main` 对账 `platform-bootstrap` Application，并证明 drift 修正和托管资源的重新创建。请参阅 [docs/gitops.md](gitops.md)。
 
 ## Golden Path Helm Chart
 
@@ -102,16 +102,16 @@ make golden-path-validate
 make golden-path-delete
 ```
 
-该 chart 通过 Argo CD 部署，使用专用的 `golden-path` AppProject 和 `golden-path-demo` Application，并验证安全默认值，包括通过 digest 固定的镜像、probes、resources、security contexts、Service 路由、ConfigMap 数据和中断处理。请参阅 [docs/golden-path.md](docs/golden-path.md)。
+该 chart 通过 Argo CD 部署，使用专用的 `golden-path` AppProject 和 `golden-path-demo` Application，并验证安全默认值，包括通过 digest 固定的镜像、probes、resources、security contexts、Service 路由、ConfigMap 数据和中断处理。请参阅 [docs/golden-path.md](golden-path.md)。
 
 ## 贡献
 
 贡献使用短生命周期分支和指向 `main` 的 pull request。历史分支为归属和恢复证据而保留；不应直接用作新实现工作的基础。
 
-请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
+请参阅 [CONTRIBUTING.md](../CONTRIBUTING.md)。
 
 ## 历史恢复
 
 取证审计得出结论，历史分支包含有用的设计概念，但不应该整体合并。未来的工作将有意恢复或重新实施已批准的概念，同时保留贡献者归属。
 
-请参阅 [docs/recovery/historical-recovery.md](docs/recovery/historical-recovery.md)。
+请参阅 [docs/recovery/historical-recovery.md](recovery/historical-recovery.md)。

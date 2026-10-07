@@ -1,6 +1,6 @@
 # Kubernetes Internal Developer Platform
 
-[English](README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
+[English](README.md) | [Español](docs/README.es.md) | [Deutsch](docs/README.de.md) | [Português](docs/README.pt.md) | [Français](docs/README.fr.md) | [Italiano](docs/README.it.md) | [Русский](docs/README.ru.md) | [Türkçe](docs/README.tr.md) | [中文](docs/README.zh.md)
 
 This repository is being rebuilt into a local-first Kubernetes Internal Developer Platform (IDP) portfolio project. The goal is to demonstrate practical platform engineering through reproducible Kubernetes environments, GitOps delivery, a reusable Helm golden path, developer self-service, software supply-chain controls, policy enforcement, observability, CI/CD, and operational documentation.
 
