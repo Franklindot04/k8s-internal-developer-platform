@@ -1,6 +1,6 @@
 # Kubernetes Internal Developer Platform
 
-[English](README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
+[English](../README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
 
 Этот репозиторий перестраивается в портфолио-проект локальной внутренней платформы разработки (IDP) на Kubernetes с подходом local-first. Цель — продемонстрировать практическую инженерию платформ через воспроизводимые среды Kubernetes, доставку GitOps, переиспользуемый golden path с Helm, самообслуживание для разработчиков, контроль цепочки поставок ПО, применение политик, наблюдаемость, CI/CD и операционную документацию.
 
@@ -26,9 +26,9 @@
 
 Запланированная платформа разделяет bootstrap инфраструктуры, возможности платформы, референсные workload, инструменты для разработчиков и документацию. Локальный демонстрационный путь сможет выполняться без обязательных расходов на облако, при этом архитектура оставляет место для будущего опционального облачного референсного развёртывания.
 
-См. [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) для целевой архитектуры и текущего состояния репозитория. См. [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md) для контрактов доверия, артефактов, доказательств, публикации и передачи цепочки поставок Этапа 6.
+См. [docs/architecture/platform-overview.md](architecture/platform-overview.md) для целевой архитектуры и текущего состояния репозитория. См. [docs/supply-chain-architecture.md](supply-chain-architecture.md) для контрактов доверия, артефактов, доказательств, публикации и передачи цепочки поставок Этапа 6.
 
-Для краткого пути ревьюзера через реализованное ядро платформы см. [docs/runbooks/platform-walkthrough.md](docs/runbooks/platform-walkthrough.md).
+Для краткого пути ревьюзера через реализованное ядро платформы см. [docs/runbooks/platform-walkthrough.md](runbooks/platform-walkthrough.md).
 
 ## Структура репозитория
 
@@ -40,13 +40,13 @@
 - `.github/` — workflows валидации репозитория и доказательства локальной платформы.
 - `scripts/` — валидация репозитория, локальный Kubernetes, GitOps, Helm chart и скрипты жизненного цикла golden path.
 
-Детальный контракт директорий задокументирован в [docs/repository/structure-contract.md](docs/repository/structure-contract.md).
+Детальный контракт директорий задокументирован в [docs/repository/structure-contract.md](repository/structure-contract.md).
 
 ## Roadmap
 
 Roadmap реализации фиксирует завершённое ядро референсной платформы local-first и опциональные области будущего расширения. Последующие работы по политикам, наблюдаемости, промоушену, provenance и порталу относятся к будущему объёму и не являются блокирующими для проверки текущего ядра.
 
-См. [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md).
+См. [docs/roadmap/implementation-roadmap.md](roadmap/implementation-roadmap.md).
 
 ## Валидация
 
@@ -72,7 +72,7 @@ make cluster-validate
 make cluster-delete
 ```
 
-Локальная платформа использует имя кластера `idp-local` и контекст kubeconfig `kind-idp-local`. См. [docs/local-kubernetes.md](docs/local-kubernetes.md) для поддерживаемых версий, поведения жизненного цикла, валидации и устранения неполадок.
+Локальная платформа использует имя кластера `idp-local` и контекст kubeconfig `kind-idp-local`. См. [docs/local-kubernetes.md](local-kubernetes.md) для поддерживаемых версий, поведения жизненного цикла, валидации и устранения неполадок.
 
 ## Control Plane GitOps
 
@@ -87,7 +87,7 @@ make gitops-test-reconciliation
 make gitops-delete
 ```
 
-GitOps bootstrap использует namespace `argocd`, по умолчанию реконсиляет Application `platform-bootstrap` из `main` и демонстрирует исправление дрейфа и пересоздание управляемых ресурсов. См. [docs/gitops.md](docs/gitops.md).
+GitOps bootstrap использует namespace `argocd`, по умолчанию реконсиляет Application `platform-bootstrap` из `main` и демонстрирует исправление дрейфа и пересоздание управляемых ресурсов. См. [docs/gitops.md](gitops.md).
 
 ## Helm Chart Golden Path
 
@@ -102,16 +102,16 @@ make golden-path-validate
 make golden-path-delete
 ```
 
-Chart разворачивается через Argo CD, использует выделенные AppProject `golden-path` и Application `golden-path-demo` и проверяет безопасные значения по умолчанию, включая зафиксированные через digest образы, probes, ресурсы, security contexts, маршрутизацию Service, данные ConfigMap и обработку сбоев. См. [docs/golden-path.md](docs/golden-path.md).
+Chart разворачивается через Argo CD, использует выделенные AppProject `golden-path` и Application `golden-path-demo` и проверяет безопасные значения по умолчанию, включая зафиксированные через digest образы, probes, ресурсы, security contexts, маршрутизацию Service, данные ConfigMap и обработку сбоев. См. [docs/golden-path.md](golden-path.md).
 
 ## Вклад
 
 Вклад использует короткоживущие ветки и pull request в `main`. Исторические ветки сохраняются для атрибуции и доказательств восстановления; их не следует использовать напрямую как основу для новой реализации.
 
-См. [CONTRIBUTING.md](CONTRIBUTING.md).
+См. [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Историческое восстановление
 
 Форензивный аудит заключил, что исторические ветки содержат полезные концепции дизайна, но не должны сливаться целиком. Будущая работа намеренно восстановит или пере реализует одобренные концепции, сохранив при этом атрибуцию контрибьюторов.
 
-См. [docs/recovery/historical-recovery.md](docs/recovery/historical-recovery.md).
+См. [docs/recovery/historical-recovery.md](recovery/historical-recovery.md).

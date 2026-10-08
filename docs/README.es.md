@@ -1,6 +1,6 @@
 # Kubernetes Internal Developer Platform
 
-[English](README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
+[English](../README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
 
 Este repositorio se está reconstruyendo como un proyecto de portafolio de una Plataforma Interna de Desarrollo (IDP) de Kubernetes con un enfoque local-first. El objetivo es demostrar ingeniería de plataformas práctica mediante entornos reproducibles de Kubernetes, entrega GitOps, un golden path reutilizable con Helm, autoservicio para desarrolladores, controles de la cadena de suministro de software, aplicación de políticas, observabilidad, CI/CD y documentación operativa.
 
@@ -26,9 +26,9 @@ La base local de Kubernetes está implementada con Kind. Argo CD se instala a pa
 
 La plataforma prevista separa el arranque de infraestructura, las capacidades de la plataforma, los workloads de referencia, las herramientas para desarrolladores y la documentación. El recorrido de demostración local podrá ejecutarse sin gasto obligatorio en la nube, mientras que la arquitectura deja espacio para una futura implementación de referencia opcional en la nube.
 
-Consulta [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) para conocer la arquitectura objetivo y el estado actual del repositorio. Consulta [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md) para conocer los contratos de confianza, artefactos, evidencias, publicación y transferencia de la cadena de suministro de la Etapa 6.
+Consulta [docs/architecture/platform-overview.md](architecture/platform-overview.md) para conocer la arquitectura objetivo y el estado actual del repositorio. Consulta [docs/supply-chain-architecture.md](supply-chain-architecture.md) para conocer los contratos de confianza, artefactos, evidencias, publicación y transferencia de la cadena de suministro de la Etapa 6.
 
-Para obtener un recorrido conciso como revisor por el núcleo de la plataforma implementada, consulta [docs/runbooks/platform-walkthrough.md](docs/runbooks/platform-walkthrough.md).
+Para obtener un recorrido conciso como revisor por el núcleo de la plataforma implementada, consulta [docs/runbooks/platform-walkthrough.md](runbooks/platform-walkthrough.md).
 
 ## Estructura del repositorio
 
@@ -40,13 +40,13 @@ Para obtener un recorrido conciso como revisor por el núcleo de la plataforma i
 - `.github/` - workflows de validación del repositorio y de demostración de la plataforma local.
 - `scripts/` - validación del repositorio, Kubernetes local, GitOps, chart de Helm y scripts del ciclo de vida del golden path.
 
-El contrato detallado de directorios está documentado en [docs/repository/structure-contract.md](docs/repository/structure-contract.md).
+El contrato detallado de directorios está documentado en [docs/repository/structure-contract.md](repository/structure-contract.md).
 
 ## Roadmap
 
 El roadmap de implementación registra el núcleo de la plataforma de referencia local-first completado y las áreas opcionales de expansión futura. El trabajo posterior sobre políticas, observabilidad, promoción, procedencia y portal forma parte del alcance futuro y no es un bloqueo para revisar el núcleo actual.
 
-Consulta [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md).
+Consulta [docs/roadmap/implementation-roadmap.md](roadmap/implementation-roadmap.md).
 
 ## Validación
 
@@ -72,7 +72,7 @@ make cluster-validate
 make cluster-delete
 ```
 
-La plataforma local utiliza el nombre de clúster `idp-local` y el contexto kubeconfig `kind-idp-local`. Consulta [local-kubernetes.md](docs/local-kubernetes.md) para conocer las versiones compatibles, el comportamiento del ciclo de vida, la validación y la resolución de problemas.
+La plataforma local utiliza el nombre de clúster `idp-local` y el contexto kubeconfig `kind-idp-local`. Consulta [local-kubernetes.md](local-kubernetes.md) para conocer las versiones compatibles, el comportamiento del ciclo de vida, la validación y la resolución de problemas.
 
 ## Plano de control GitOps
 
@@ -87,7 +87,7 @@ make gitops-test-reconciliation
 make gitops-delete
 ```
 
-El arranque GitOps utiliza el namespace `argocd`, reconcilia la aplicación `platform-bootstrap` desde `main` de forma predeterminada y demuestra la corrección de drift y la recreación de recursos gestionados. Consulta [gitops.md](docs/gitops.md).
+El arranque GitOps utiliza el namespace `argocd`, reconcilia la aplicación `platform-bootstrap` desde `main` de forma predeterminada y demuestra la corrección de drift y la recreación de recursos gestionados. Consulta [gitops.md](gitops.md).
 
 ## Chart Helm Golden Path
 
@@ -102,16 +102,16 @@ make golden-path-validate
 make golden-path-delete
 ```
 
-El chart se despliega mediante Argo CD, utiliza un AppProject `golden-path` y una Application `golden-path-demo` dedicados, y valida valores predeterminados seguros, incluidos imágenes fijadas mediante digest, probes, recursos, contextos de seguridad, routing del Service, datos de ConfigMap y gestión de interrupciones. Consulta [golden-path.md](docs/golden-path.md).
+El chart se despliega mediante Argo CD, utiliza un AppProject `golden-path` y una Application `golden-path-demo` dedicados, y valida valores predeterminados seguros, incluidos imágenes fijadas mediante digest, probes, recursos, contextos de seguridad, routing del Service, datos de ConfigMap y gestión de interrupciones. Consulta [golden-path.md](golden-path.md).
 
 ## Contribuir
 
 Las contribuciones utilizan ramas de corta duración y pull requests hacia `main`. Las ramas históricas se conservan para atribución y evidencia de recuperación; no deben utilizarse directamente como base para nuevos trabajos de implementación.
 
-Consulta [CONTRIBUTING.md](CONTRIBUTING.md).
+Consulta [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Recuperación histórica
 
 La auditoría forense concluyó que las ramas históricas contienen conceptos de diseño útiles, pero no deben fusionarse en bloque. El trabajo futuro recuperará o volverá a implementar deliberadamente los conceptos aprobados, preservando al mismo tiempo la atribución de los colaboradores.
 
-Consulta [historical-recovery.md](docs/recovery/historical-recovery.md).
+Consulta [historical-recovery.md](recovery/historical-recovery.md).

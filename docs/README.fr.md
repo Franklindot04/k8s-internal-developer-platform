@@ -1,6 +1,6 @@
 # Kubernetes Internal Developer Platform
 
-[English](README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
+[English](../README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
 
 Ce dépôt est en cours de reconstruction en tant que projet de portfolio d'une Plateforme Interne de Développeur (IDP) Kubernetes avec une approche local-first. L'objectif est de démontrer une ingénierie de plateforme pratique grâce à des environnements Kubernetes reproductibles, une livraison GitOps, un golden path réutilisable avec Helm, un self-service pour les développeurs, des contrôles de la chaîne d'approvisionnement logicielle, une application des politiques, de l'observabilité, du CI/CD et une documentation opérationnelle.
 
@@ -26,9 +26,9 @@ La base Kubernetes locale est implémentée avec Kind. Argo CD est installé à 
 
 La plateforme prévue sépare le bootstrap d'infrastructure, les capacités de la plateforme, les workloads de référence, les outils pour développeurs et la documentation. Le parcours de démonstration local pourra être exécuté sans dépenses cloud obligatoires, tandis que l'architecture laisse place à un futur déploiement de référence cloud optionnel.
 
-Consultez [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) pour l'architecture cible et l'état actuel du dépôt. Consultez [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md) pour les contrats de confiance, artefacts, preuves, publication et handoff de la chaîne d'approvisionnement de l'Étape 6.
+Consultez [docs/architecture/platform-overview.md](architecture/platform-overview.md) pour l'architecture cible et l'état actuel du dépôt. Consultez [docs/supply-chain-architecture.md](supply-chain-architecture.md) pour les contrats de confiance, artefacts, preuves, publication et handoff de la chaîne d'approvisionnement de l'Étape 6.
 
-Pour un parcours concis de revue du cœur de la plateforme implémentée, consultez [docs/runbooks/platform-walkthrough.md](docs/runbooks/platform-walkthrough.md).
+Pour un parcours concis de revue du cœur de la plateforme implémentée, consultez [docs/runbooks/platform-walkthrough.md](runbooks/platform-walkthrough.md).
 
 ## Structure du Dépôt
 
@@ -40,13 +40,13 @@ Pour un parcours concis de revue du cœur de la plateforme implémentée, consul
 - `.github/` – workflows de validation du dépôt et de preuve de la plateforme locale.
 - `scripts/` – validation du dépôt, Kubernetes local, GitOps, chart Helm et scripts du cycle de vie du golden path.
 
-Le contrat détaillé des répertoires est documenté dans [docs/repository/structure-contract.md](docs/repository/structure-contract.md).
+Le contrat détaillé des répertoires est documenté dans [docs/repository/structure-contract.md](repository/structure-contract.md).
 
 ## Roadmap
 
 Le roadmap d'implémentation enregistre le cœur de la plateforme de référence local-first terminé et les domaines optionnels d'expansion future. Les travaux ultérieurs sur les politiques, l'observabilité, la promotion, la provenance et le portail font partie du périmètre futur et ne constituent pas un blocage pour l'examen du cœur actuel.
 
-Consultez [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md).
+Consultez [docs/roadmap/implementation-roadmap.md](roadmap/implementation-roadmap.md).
 
 ## Validation
 
@@ -72,7 +72,7 @@ make cluster-validate
 make cluster-delete
 ```
 
-La plateforme locale utilise le nom de cluster `idp-local` et le contexte kubeconfig `kind-idp-local`. Consultez [docs/local-kubernetes.md](docs/local-kubernetes.md) pour les versions prises en charge, le comportement du cycle de vie, la validation et le dépannage.
+La plateforme locale utilise le nom de cluster `idp-local` et le contexte kubeconfig `kind-idp-local`. Consultez [docs/local-kubernetes.md](local-kubernetes.md) pour les versions prises en charge, le comportement du cycle de vie, la validation et le dépannage.
 
 ## Control Plane GitOps
 
@@ -87,7 +87,7 @@ make gitops-test-reconciliation
 make gitops-delete
 ```
 
-Le bootstrap GitOps utilise le namespace `argocd`, réconcilie l'Application `platform-bootstrap` depuis `main` par défaut et prouve la correction du drift et la recréation des ressources gérées. Consultez [docs/gitops.md](docs/gitops.md).
+Le bootstrap GitOps utilise le namespace `argocd`, réconcilie l'Application `platform-bootstrap` depuis `main` par défaut et prouve la correction du drift et la recréation des ressources gérées. Consultez [docs/gitops.md](gitops.md).
 
 ## Chart Helm Golden Path
 
@@ -102,16 +102,16 @@ make golden-path-validate
 make golden-path-delete
 ```
 
-Le chart est déployé via Argo CD, utilise un AppProject `golden-path` et une Application `golden-path-demo` dédiés et valide des paramètres par défaut sécurisés, notamment des images épinglées par digest, des probes, des ressources, des contextes de sécurité, le routage du Service, les données ConfigMap et la gestion des disruptions. Consultez [docs/golden-path.md](docs/golden-path.md).
+Le chart est déployé via Argo CD, utilise un AppProject `golden-path` et une Application `golden-path-demo` dédiés et valide des paramètres par défaut sécurisés, notamment des images épinglées par digest, des probes, des ressources, des contextes de sécurité, le routage du Service, les données ConfigMap et la gestion des disruptions. Consultez [docs/golden-path.md](golden-path.md).
 
 ## Contribuer
 
 Les contributions utilisent des branches de courte durée et des pull requests vers `main`. Les branches historiques restent préservées pour l'attribution et la preuve de récupération ; elles ne doivent pas être utilisées directement comme base pour de nouveaux travaux d'implémentation.
 
-Consultez [CONTRIBUTING.md](CONTRIBUTING.md).
+Consultez [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Récupération Historique
 
 L'audit forensique a conclu que les branches historiques contiennent des concepts de conception utiles mais ne doivent pas être fusionnées en bloc. Les travaux futurs récupéreront ou réimplémenteront délibérément les concepts approuvés tout en préservant l'attribution des contributeurs.
 
-Consultez [docs/recovery/historical-recovery.md](docs/recovery/historical-recovery.md).
+Consultez [docs/recovery/historical-recovery.md](recovery/historical-recovery.md).

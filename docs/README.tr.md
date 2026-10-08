@@ -1,6 +1,6 @@
 # Kubernetes Internal Developer Platform
 
-[English](README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
+[English](../README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
 
 Bu depo, local-first yaklaşımına sahip bir Kubernetes İç Geliştirici Platformu (IDP) portföy projesi olarak yeniden inşa ediliyor. Amaç, yeniden üretilebilir Kubernetes ortamları, GitOps teslimatı, yeniden kullanılabilir bir Helm golden path'i, geliştirici öz hizmeti, yazılım tedarik zinciri kontrolleri, politika uygulaması, gözlemlenebilirlik, CI/CD ve operasyonel dokümantasyon aracılığıyla pratik platform mühendisliğini göstermektir.
 
@@ -26,9 +26,9 @@ Yerel Kubernetes temeli Kind ile uygulanmıştır. Argo CD, sabitlenmiş ve chec
 
 Planlanan platform; altyapı bootstrap'ı, platform yetenekleri, referans workload'lar, geliştirici araçları ve dokümantasyonu ayırır. Yerel demonstrasyon yolu, zorunlu bulut harcaması olmadan çalıştırılabilir olacak; mimari ise gelecekteki isteğe bağlı bir bulut referans dağıtımı için alan bırakır.
 
-Hedef mimari ve mevcut depo durumu için bkz. [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md). Aşama 6 tedarik zinciri güveni, artefaktları, kanıtları, yayını ve aktarım sözleşmeleri için bkz. [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md).
+Hedef mimari ve mevcut depo durumu için bkz. [docs/architecture/platform-overview.md](architecture/platform-overview.md). Aşama 6 tedarik zinciri güveni, artefaktları, kanıtları, yayını ve aktarım sözleşmeleri için bkz. [docs/supply-chain-architecture.md](supply-chain-architecture.md).
 
-Uygulanan platform çekirdeğinden kısa bir inceleme yolu için bkz. [docs/runbooks/platform-walkthrough.md](docs/runbooks/platform-walkthrough.md).
+Uygulanan platform çekirdeğinden kısa bir inceleme yolu için bkz. [docs/runbooks/platform-walkthrough.md](runbooks/platform-walkthrough.md).
 
 ## Depo Yapısı
 
@@ -40,13 +40,13 @@ Uygulanan platform çekirdeğinden kısa bir inceleme yolu için bkz. [docs/runb
 - `.github/` – depo doğrulama ve yerel platform kanıt iş akışları.
 - `scripts/` – depo doğrulama, yerel Kubernetes, GitOps, Helm chart ve golden path yaşam döngüsü scriptleri.
 
-Ayrıntılı dizin sözleşmesi [docs/repository/structure-contract.md](docs/repository/structure-contract.md) içinde belgelenmiştir.
+Ayrıntılı dizin sözleşmesi [docs/repository/structure-contract.md](repository/structure-contract.md) içinde belgelenmiştir.
 
 ## Yol Haritası
 
 Uygulama yol haritası, tamamlanmış local-first referans platform çekirdeğini ve isteğe bağlı gelecekteki genişleme alanlarını kaydeder. Politika, gözlemlenebilirlik, promosyon, provenance ve portal üzerindeki sonraki çalışmalar gelecekteki kapsamdadır ve mevcut çekirdeğin incelenmesi için bir engel teşkil etmez.
 
-Bkz. [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md).
+Bkz. [docs/roadmap/implementation-roadmap.md](roadmap/implementation-roadmap.md).
 
 ## Doğrulama
 
@@ -72,7 +72,7 @@ make cluster-validate
 make cluster-delete
 ```
 
-Yerel platform, `idp-local` küme adını ve `kind-idp-local` kubeconfig bağlamını kullanır. Desteklenen sürümler, yaşam döngüsü davranışı, doğrulama ve sorun giderme için bkz. [docs/local-kubernetes.md](docs/local-kubernetes.md).
+Yerel platform, `idp-local` küme adını ve `kind-idp-local` kubeconfig bağlamını kullanır. Desteklenen sürümler, yaşam döngüsü davranışı, doğrulama ve sorun giderme için bkz. [docs/local-kubernetes.md](local-kubernetes.md).
 
 ## GitOps Control Plane
 
@@ -87,7 +87,7 @@ make gitops-test-reconciliation
 make gitops-delete
 ```
 
-GitOps bootstrap, `argocd` namespace'ini kullanır, varsayılan olarak `main`'den `platform-bootstrap` Application'ını uzlaştırır ve drift düzeltmesi ile yönetilen kaynakların yeniden oluşturulmasını kanıtlar. Bkz. [docs/gitops.md](docs/gitops.md).
+GitOps bootstrap, `argocd` namespace'ini kullanır, varsayılan olarak `main`'den `platform-bootstrap` Application'ını uzlaştırır ve drift düzeltmesi ile yönetilen kaynakların yeniden oluşturulmasını kanıtlar. Bkz. [docs/gitops.md](gitops.md).
 
 ## Golden Path Helm Chart
 
@@ -102,16 +102,16 @@ make golden-path-validate
 make golden-path-delete
 ```
 
-Chart, Argo CD aracılığıyla dağıtılır, özel `golden-path` AppProject ve `golden-path-demo` Application kullanır ve digest ile sabitlenmiş imajlar, prob'lar, kaynaklar, güvenlik bağlamları, Service yönlendirmesi, ConfigMap verileri ve kesinti yönetimi dahil güvenli varsayılanları doğrular. Bkz. [docs/golden-path.md](docs/golden-path.md).
+Chart, Argo CD aracılığıyla dağıtılır, özel `golden-path` AppProject ve `golden-path-demo` Application kullanır ve digest ile sabitlenmiş imajlar, prob'lar, kaynaklar, güvenlik bağlamları, Service yönlendirmesi, ConfigMap verileri ve kesinti yönetimi dahil güvenli varsayılanları doğrular. Bkz. [docs/golden-path.md](golden-path.md).
 
 ## Katkıda Bulunma
 
 Katkılar, `main`'e kısa ömürlü dallar ve pull request'ler kullanır. Tarihsel dallar, atıf ve kurtarma kanıtı için korunur; yeni uygulama çalışmaları için doğrudan temel olarak kullanılmamalıdır.
 
-Bkz. [CONTRIBUTING.md](CONTRIBUTING.md).
+Bkz. [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Tarihsel Kurtarma
 
 Adli denetim, tarihsel dalların yararlı tasarım kavramları içerdiği ancak toplu olarak birleştirilmemesi gerektiği sonucuna vardı. Gelecek çalışmalar, katkıda bulunanların atıflarını korurken onaylanmış kavramları kasıtlı olarak kurtaracak veya yeniden uygulayacaktır.
 
-Bkz. [docs/recovery/historical-recovery.md](docs/recovery/historical-recovery.md).
+Bkz. [docs/recovery/historical-recovery.md](recovery/historical-recovery.md).

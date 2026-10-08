@@ -1,6 +1,6 @@
 # Kubernetes Internal Developer Platform
 
-[English](README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
+[English](../README.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Italiano](README.it.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [中文](README.zh.md)
 
 Este repositório está sendo reconstruído como um projeto de portfólio de uma Plataforma Interna de Desenvolvedor (IDP) Kubernetes com abordagem local-first. O objetivo é demonstrar engenharia de plataforma prática por meio de ambientes Kubernetes reproduzíveis, entrega GitOps, um golden path reutilizável com Helm, autoatendimento para desenvolvedores, controles de cadeia de suprimentos de software, aplicação de políticas, observabilidade, CI/CD e documentação operacional.
 
@@ -26,9 +26,9 @@ A base local do Kubernetes é implementada com Kind. O Argo CD é instalado a pa
 
 A plataforma pretendida separa bootstrap de infraestrutura, capacidades da plataforma, workloads de referência, ferramentas para desenvolvedores e documentação. O caminho de demonstração local poderá ser executado sem gastos obrigatórios em nuvem, enquanto a arquitetura deixa espaço para uma futura implementação de referência opcional em nuvem.
 
-Consulte [docs/architecture/platform-overview.md](docs/architecture/platform-overview.md) para a arquitetura alvo e o estado atual do repositório. Consulte [docs/supply-chain-architecture.md](docs/supply-chain-architecture.md) para os contratos de confiança, artefatos, evidências, publicação e handoff da cadeia de suprimentos da Etapa 6.
+Consulte [docs/architecture/platform-overview.md](architecture/platform-overview.md) para a arquitetura alvo e o estado atual do repositório. Consulte [docs/supply-chain-architecture.md](supply-chain-architecture.md) para os contratos de confiança, artefatos, evidências, publicação e handoff da cadeia de suprimentos da Etapa 6.
 
-Para um caminho conciso de revisão pelo núcleo da plataforma implementada, consulte [docs/runbooks/platform-walkthrough.md](docs/runbooks/platform-walkthrough.md).
+Para um caminho conciso de revisão pelo núcleo da plataforma implementada, consulte [docs/runbooks/platform-walkthrough.md](runbooks/platform-walkthrough.md).
 
 ## Estrutura do Repositório
 
@@ -40,13 +40,13 @@ Para um caminho conciso de revisão pelo núcleo da plataforma implementada, con
 - `.github/` – fluxos de validação do repositório e de prova da plataforma local.
 - `scripts/` – validação do repositório, Kubernetes local, GitOps, chart Helm e scripts do ciclo de vida do golden path.
 
-O contrato detalhado de diretórios está documentado em [docs/repository/structure-contract.md](docs/repository/structure-contract.md).
+O contrato detalhado de diretórios está documentado em [docs/repository/structure-contract.md](repository/structure-contract.md).
 
 ## Roadmap
 
 O roadmap de implementação registra o núcleo da plataforma de referência local-first concluído e áreas opcionais de expansão futura. Trabalhos futuros em políticas, observabilidade, promoção, proveniência e portal fazem parte do escopo futuro e não são um bloqueador para revisar o núcleo atual.
 
-Consulte [docs/roadmap/implementation-roadmap.md](docs/roadmap/implementation-roadmap.md).
+Consulte [docs/roadmap/implementation-roadmap.md](roadmap/implementation-roadmap.md).
 
 ## Validação
 
@@ -72,7 +72,7 @@ make cluster-validate
 make cluster-delete
 ```
 
-A plataforma local usa o nome do cluster `idp-local` e o contexto kubeconfig `kind-idp-local`. Consulte [docs/local-kubernetes.md](docs/local-kubernetes.md) para versões suportadas, comportamento do ciclo de vida, validação e solução de problemas.
+A plataforma local usa o nome do cluster `idp-local` e o contexto kubeconfig `kind-idp-local`. Consulte [docs/local-kubernetes.md](local-kubernetes.md) para versões suportadas, comportamento do ciclo de vida, validação e solução de problemas.
 
 ## Control Plane GitOps
 
@@ -87,7 +87,7 @@ make gitops-test-reconciliation
 make gitops-delete
 ```
 
-O bootstrap GitOps usa o namespace `argocd`, reconcilia o Application `platform-bootstrap` a partir de `main` por padrão e prova correção de drift e recriação de recursos gerenciados. Consulte [docs/gitops.md](docs/gitops.md).
+O bootstrap GitOps usa o namespace `argocd`, reconcilia o Application `platform-bootstrap` a partir de `main` por padrão e prova correção de drift e recriação de recursos gerenciados. Consulte [docs/gitops.md](gitops.md).
 
 ## Chart Helm Golden Path
 
@@ -102,16 +102,16 @@ make golden-path-validate
 make golden-path-delete
 ```
 
-O chart é implantado via Argo CD, usa um AppProject `golden-path` e um Application `golden-path-demo` dedicados e valida padrões seguros, incluindo imagens fixadas por digest, probes, recursos, contextos de segurança, roteamento do Service, dados do ConfigMap e tratamento de disrupção. Consulte [docs/golden-path.md](docs/golden-path.md).
+O chart é implantado via Argo CD, usa um AppProject `golden-path` e um Application `golden-path-demo` dedicados e valida padrões seguros, incluindo imagens fixadas por digest, probes, recursos, contextos de segurança, roteamento do Service, dados do ConfigMap e tratamento de disrupção. Consulte [docs/golden-path.md](golden-path.md).
 
 ## Contribuindo
 
 Contribuições usam branches de curta duração e pull requests para `main`. Branches históricos permanecem preservados para atribuição e evidência de recuperação; eles não devem ser usados diretamente como base para novos trabalhos de implementação.
 
-Consulte [CONTRIBUTING.md](CONTRIBUTING.md).
+Consulte [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Recuperação Histórica
 
 A auditoria forense concluiu que branches históricos contêm conceitos de design úteis, mas não devem ser mesclados integralmente. Trabalhos futuros recuperarão ou reimplementarão deliberadamente conceitos aprovados, preservando ao mesmo tempo a atribuição dos contribuidores.
 
-Consulte [docs/recovery/historical-recovery.md](docs/recovery/historical-recovery.md).
+Consulte [docs/recovery/historical-recovery.md](recovery/historical-recovery.md).
